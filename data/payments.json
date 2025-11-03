@@ -8,7 +8,7 @@
   },
   {
     "order_id": 2,
-    "method": "card",
+    "method": "wallet",
     "amount": 26.400000000000002,
     "status": "APPROVED",
     "id": 2

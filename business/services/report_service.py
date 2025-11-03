@@ -14,8 +14,8 @@ from business.models.report import (
 )
 
 class ReportService:
+    # generate report based on given period
     def generate(self, period: str) -> List[Dict]:
-        """Generate report for given period."""
         p = period.lower()
         if p == "daily":
             strategy = DailyReportStrategy()

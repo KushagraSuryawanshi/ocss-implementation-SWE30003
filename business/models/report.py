@@ -11,9 +11,11 @@ from datetime import datetime
 from storage.storage_manager import StorageManager
 
 class ReportStrategy:
+    # base strategy interface
     def generate(self) -> List[Dict]:
         raise NotImplementedError
 
+# daily report strategy
 class DailyReportStrategy(ReportStrategy):
     def generate(self) -> List[Dict]:
         s = StorageManager()
@@ -27,6 +29,7 @@ class DailyReportStrategy(ReportStrategy):
             {"metric": "Revenue Today", "value": round(revenue, 2)},
         ]
 
+# monthly report strategy
 class MonthlyReportStrategy(ReportStrategy):
     def generate(self) -> List[Dict]:
         s = StorageManager()
@@ -40,6 +43,7 @@ class MonthlyReportStrategy(ReportStrategy):
             {"metric": "Revenue This Month", "value": round(revenue, 2)},
         ]
 
+# all-time report strategy
 class AllTimeReportStrategy(ReportStrategy):
     def generate(self) -> List[Dict]:
         s = StorageManager()
@@ -53,10 +57,13 @@ class AllTimeReportStrategy(ReportStrategy):
 
 class Report:
     def __init__(self, strategy: ReportStrategy):
+        # init report with given strategy
         self.strategy = strategy
 
+    # change current strategy
     def set_strategy(self, strategy: ReportStrategy) -> None:
         self.strategy = strategy
 
+    # generate report using selected strategy
     def generate_report(self) -> List[Dict]:
         return self.strategy.generate()

@@ -10,17 +10,28 @@ from typing import Optional, Dict
 from storage.storage_manager import StorageManager
 
 class Account:
-    def __init__(self, id: int, username: str, password: str, user_type: str, customer_id: int | None = None, staff_id: int | None = None):
+    def __init__(
+        self, 
+        id: int, 
+        username: str, 
+        password: str, 
+        user_type: str, 
+        customer_id: int | None = None, 
+        staff_id: int | None = None
+    ):
+        # init account details
         self.id = id
         self.username = username
-        self.password = password               # For assignment scope; not hashed
-        self.user_type = user_type             # 'customer' or 'staff'
+        self.password = password  # plain text for now
+        self.user_type = user_type  # 'customer' or 'staff'
         self.customer_id = customer_id
         self.staff_id = staff_id
 
+    # verify password
     def verify(self, password: str) -> bool:
         return self.password == password
 
+    # convert account to dict
     def to_dict(self) -> Dict:
         return {
             "id": self.id,
@@ -31,6 +42,7 @@ class Account:
             "staff_id": self.staff_id,
         }
 
+    # create account from dict
     @staticmethod
     def from_dict(data: Dict) -> "Account":
         return Account(
@@ -42,7 +54,7 @@ class Account:
             staff_id=data.get("staff_id"),
         )
 
-    # ---------- Persistence helpers ----------
+    # find account by username
     @staticmethod
     def find_by_username(username: str) -> Optional["Account"]:
         s = StorageManager()
@@ -51,8 +63,15 @@ class Account:
                 return Account.from_dict(row)
         return None
 
+    # add a new account to storage
     @staticmethod
-    def add(username: str, password: str, user_type: str, customer_id: int | None = None, staff_id: int | None = None) -> "Account":
+    def add(
+        username: str, 
+        password: str, 
+        user_type: str, 
+        customer_id: int | None = None, 
+        staff_id: int | None = None
+    ) -> "Account":
         s = StorageManager()
         rec = s.add("accounts", {
             "username": username,

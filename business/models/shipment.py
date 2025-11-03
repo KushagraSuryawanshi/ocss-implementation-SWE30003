@@ -11,12 +11,14 @@ from storage.storage_manager import StorageManager
 
 class Shipment:
     def __init__(self, id: int, order_id: int, tracking_number: str, status: str, shipped_at: str | None):
+        # init shipment details
         self.id = id
         self.order_id = order_id
         self.tracking_number = tracking_number
-        self.status = status                 # PENDING or SHIPPED
+        self.status = status  # PENDING or SHIPPED
         self.shipped_at = shipped_at
 
+    # convert shipment to dictionary
     def to_dict(self) -> Dict:
         return {
             "id": self.id,
@@ -26,6 +28,7 @@ class Shipment:
             "shipped_at": self.shipped_at
         }
 
+    # create and save new shipment
     @staticmethod
     def create(order_id: int, tracking_number: str) -> "Shipment":
         s = StorageManager()
@@ -37,6 +40,7 @@ class Shipment:
         })
         return Shipment.from_dict(rec)
 
+    # create shipment object from dict
     @staticmethod
     def from_dict(data: Dict) -> "Shipment":
         return Shipment(
@@ -47,6 +51,7 @@ class Shipment:
             shipped_at=data.get("shipped_at"),
         )
 
+    # find shipment by order id
     @staticmethod
     def find_by_order(order_id: int) -> Optional["Shipment"]:
         s = StorageManager()
@@ -55,7 +60,10 @@ class Shipment:
                 return Shipment.from_dict(sh)
         return None
 
+    # mark shipment as shipped and update storage
     def mark_shipped(self) -> None:
         self.status = "SHIPPED"
         self.shipped_at = datetime.now().isoformat()
-        StorageManager().update("shipments", self.id, {"status": self.status, "shipped_at": self.shipped_at})
+        StorageManager().update(
+            "shipments", self.id, {"status": self.status, "shipped_at": self.shipped_at}
+        )

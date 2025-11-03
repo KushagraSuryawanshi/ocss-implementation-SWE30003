@@ -15,28 +15,27 @@ SESSION_FILE = DATA_DIR / "session.json"
 
 class SessionManager:
     """Handles persistent session state for CLI."""
-    
+
+    # save current user session to file
     @staticmethod
     def save_session(user_data: Dict) -> None:
-        """Save current user session to file."""
         with open(SESSION_FILE, 'w') as f:
             json.dump(user_data, f, indent=2)
-    
+
+    # load existing session from file
     @staticmethod
     def load_session() -> Optional[Dict]:
-        """Load current user session from file."""
         if not SESSION_FILE.exists():
             return None
-        
         try:
             with open(SESSION_FILE, 'r') as f:
                 data = json.load(f)
                 return data if data else None
         except (json.JSONDecodeError, FileNotFoundError):
             return None
-    
+
+    # remove session file to clear login state
     @staticmethod
     def clear_session() -> None:
-        """Clear current user session."""
         if SESSION_FILE.exists():
             SESSION_FILE.unlink()
