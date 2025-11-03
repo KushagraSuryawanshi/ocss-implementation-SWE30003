@@ -1,0 +1,62 @@
+[
+  {
+    "customer_id": 1,
+    "items": [
+      {
+        "product_id": 1,
+        "name": "Milk 1L",
+        "price": 3.5,
+        "qty": 2,
+        "subtotal": 7.0
+      },
+      {
+        "product_id": 2,
+        "name": "Bread Loaf",
+        "price": 4.2,
+        "qty": 3,
+        "subtotal": 12.600000000000001
+      },
+      {
+        "product_id": 3,
+        "name": "Eggs (12)",
+        "price": 6.8,
+        "qty": 1,
+        "subtotal": 6.8
+      }
+    ],
+    "total": 26.400000000000002,
+    "status": "PAID",
+    "created_at": "2025-11-03T19:10:46.772871",
+    "id": 1
+  },
+  {
+    "customer_id": 1,
+    "items": [
+      {
+        "product_id": 1,
+        "name": "Milk 1L",
+        "price": 3.5,
+        "qty": 2,
+        "subtotal": 7.0
+      },
+      {
+        "product_id": 2,
+        "name": "Bread Loaf",
+        "price": 4.2,
+        "qty": 3,
+        "subtotal": 12.600000000000001
+      },
+      {
+        "product_id": 3,
+        "name": "Eggs (12)",
+        "price": 6.8,
+        "qty": 1,
+        "subtotal": 6.8
+      }
+    ],
+    "total": 26.400000000000002,
+    "status": "PAID",
+    "created_at": "2025-11-03T19:11:05.439291",
+    "id": 2
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "username": "customer1",
+  "password": "Password123!",
+  "user_type": "customer",
+  "customer_id": 1,
+  "staff_id": null,
+  "id": 1
+}

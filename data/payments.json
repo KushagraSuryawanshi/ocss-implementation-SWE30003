@@ -1,0 +1,16 @@
+[
+  {
+    "order_id": 1,
+    "method": "card",
+    "amount": 26.400000000000002,
+    "status": "APPROVED",
+    "id": 1
+  },
+  {
+    "order_id": 2,
+    "method": "card",
+    "amount": 26.400000000000002,
+    "status": "APPROVED",
+    "id": 2
+  }
+]

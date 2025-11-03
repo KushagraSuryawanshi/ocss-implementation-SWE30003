@@ -1,0 +1,15 @@
+[
+  {
+    "customer_id": 1,
+    "items": [
+      {
+        "product_id": 1,
+        "name": "Milk 1L",
+        "price": 3.5,
+        "qty": 1,
+        "subtotal": 3.5
+      }
+    ],
+    "id": 1
+  }
+]
