@@ -4,11 +4,5 @@
     "tracking_number": "TRACK123",
     "status": "SHIPPED",
     "id": 1
-  },
-  {
-    "order_id": 2,
-    "tracking_number": "TRACK123",
-    "status": "SHIPPED",
-    "id": 2
   }
 ]

@@ -1,64 +1,72 @@
 """
-File: payment.py
-Layer: Business Logic
-Component: Domain Model - Payment (Factory Method)
-Description:
-    Abstract payment with concrete mock types. Factory creates the right type.
-    On process(), a record is persisted to payments.json.
+Handles customer payments for orders.
+Implements a simple factory pattern to create different payment types.
+Uses Decimal for all money calculations for accuracy.
 """
+
 from typing import Dict
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 
+
 class PaymentDeclinedError(Exception):
-    # custom exception for declined payments
+    """Raised when a payment attempt fails."""
     pass
 
+
 class Payment:
-    def __init__(self, method: str, amount: float, order_id: int):
-        # init payment with method, amount, and order id
+    """Base class for all payment types."""
+
+    def __init__(self, method: str, amount, order_id: int):
         self.method = method
-        self.amount = float(amount)
+        self.amount = Decimal(str(amount))
         self.order_id = order_id
 
-    # base process method (to be overridden)
     def process(self) -> str:
+        """Subclasses must implement their own payment process."""
         raise NotImplementedError
 
-    # save payment record to storage
     def _persist(self, status: str) -> Dict:
+        """Saves a payment record to JSON storage."""
         s = StorageManager()
         return s.add("payments", {
             "order_id": self.order_id,
             "method": self.method,
-            "amount": self.amount,
+            "amount": float(self.amount),
             "status": status
         })
 
-    # return status string based on result
     def _persist_result(self, ok: bool) -> str:
+        """Returns status text from a boolean flag."""
         return "APPROVED" if ok else "DECLINED"
 
-# card payment implementation
+
 class CardPayment(Payment):
+    """Simulated card payment."""
+
     def process(self) -> str:
         status = self._persist_result(True)
         self._persist(status)
         return "Card payment processed"
 
-# wallet payment implementation
+
 class WalletPayment(Payment):
+    """Simulated wallet payment."""
+
     def process(self) -> str:
         status = self._persist_result(True)
         self._persist(status)
         return "Wallet payment processed"
 
-# payment factory to create proper type
+
 class PaymentFactory:
+    """Factory for creating specific payment objects."""
+
     @staticmethod
-    def create(method: str, amount: float, order_id: int) -> Payment:
-        m = method.lower()
-        if m == "card":
+    def create(method: str, amount, order_id: int) -> Payment:
+        method = method.lower()
+        if method == "card":
             return CardPayment("card", amount, order_id)
-        if m == "wallet":
+        if method == "wallet":
             return WalletPayment("wallet", amount, order_id)
-        raise ValueError("Unsupported payment method")
+        raise ValueError(f"Unsupported payment method: {method}")

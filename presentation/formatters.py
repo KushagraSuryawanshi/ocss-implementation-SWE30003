@@ -1,16 +1,16 @@
 """
-File: formatters.py
-Layer: Presentation
-Description:
-    Handles terminal output formatting for product listings, carts, invoices, and reports.
+Formatting helpers for displaying tables in the terminal.
+Used by the CLI to show products, carts, invoices, reports, and orders.
 """
+
 from rich.table import Table
 from rich.console import Console
 
 console = Console()
 
-# show list of products
+# ---------Product catalogue display----------------------------------------------------------
 def display_products_table(products):
+    """Show all products in a formatted table."""
     if not products:
         console.print("[yellow]No products found[/yellow]")
         return
@@ -23,13 +23,15 @@ def display_products_table(products):
     table.add_column("Stock", style="yellow")
 
     for p in products:
-        stock_display = str(p["stock"]) if p["stock"] > 0 else "[red]Out of Stock[/red]"
-        table.add_row(str(p["id"]), p["name"], p["category"], f"${p['price']:.2f}", stock_display)
+        stock_text = str(p["stock"]) if p["stock"] > 0 else "[red]Out of Stock[/red]"
+        table.add_row(str(p["id"]), p["name"], p["category"], f"${p['price']:.2f}", stock_text)
 
     console.print(table)
 
-# show cart items
+
+# ---------Shopping cart display----------------------------------------------------------
 def display_cart_table(cart):
+    """Show items currently in the user's cart."""
     items = cart.get("items", [])
     if not items:
         console.print("[yellow]Cart is empty[/yellow]")
@@ -42,15 +44,22 @@ def display_cart_table(cart):
     table.add_column("Subtotal", justify="right", style="magenta")
 
     for item in items:
-        table.add_row(item["name"], str(item["qty"]), f"${item['price']:.2f}", f"${item['subtotal']:.2f}")
+        table.add_row(
+            item["name"],
+            str(item["qty"]),
+            f"${item['price']:.2f}",
+            f"${item['subtotal']:.2f}"
+        )
 
     console.print(table)
     console.print(f"\n[bold green]Total: ${cart.get('total', 0.0):.2f}[/bold green]")
 
-# show invoice details
+
+# ----------Invoice display-----------------------------------------------------------
 def display_invoice_table(invoice):
+    """Show invoice summary and item breakdown."""
     if not invoice.get("success"):
-        console.print(f"[red]✗ {invoice.get('message', 'Invoice not found')}[/red]")
+        console.print(f"[red]{invoice.get('message', 'Invoice not found')}[/red]")
         return
 
     console.print("\n[bold cyan]Invoice Summary[/bold cyan]")
@@ -73,13 +82,20 @@ def display_invoice_table(invoice):
 
     for item in invoice["items"]:
         subtotal = item["quantity"] * item["price"]
-        table.add_row(item["product"], str(item["quantity"]), f"${item['price']:.2f}", f"${subtotal:.2f}")
+        table.add_row(
+            item["product"],
+            str(item["quantity"]),
+            f"${item['price']:.2f}",
+            f"${subtotal:.2f}"
+        )
 
     console.print(table)
-    console.print("\n")
+    console.print()
 
-# show report summary
+
+# -----------Report display---------------------------------------------------------------------
 def display_report_table(report):
+    """Show a simple summary of report metrics."""
     if not report:
         console.print("[yellow]No report data available[/yellow]")
         return
@@ -94,14 +110,19 @@ def display_report_table(report):
     console.print(table)
 
 
+# ---------Orders display-----------------------------------------------------
 def display_orders_table(orders: list):
+    """Show all orders with their items."""
     if not orders:
         console.print("[yellow]No orders found.[/yellow]")
         return
 
     for order in orders:
-        table = Table(title=f"Order ID: {order['id']} | Status: {order['status']} | Total: ${order['total']:.2f}")
-
+        table = Table(
+            title=f"Order ID: {order['id']} | "
+                  f"Status: {order['status']} | "
+                  f"Total: ${order['total']:.2f}"
+        )
         table.add_column("Product ID", justify="right")
         table.add_column("Name")
         table.add_column("Qty", justify="right")
@@ -118,4 +139,4 @@ def display_orders_table(orders: list):
             )
 
         console.print(table)
-        console.print()  # blank line between orders
+        console.print()  # space between orders

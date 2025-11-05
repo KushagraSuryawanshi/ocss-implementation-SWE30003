@@ -1,13 +1,8 @@
 """
-File: json_handler.py
-Layer: Data Access
-Component: JSON Handler
-Description:
-    Provides low-level JSON file operations:
-      - Safe read and write
-      - Automatic file creation
-      - Atomic write with Windows-safe rename fallback
+Utility for safe reading and writing of JSON files.
+Handles file creation, atomic saves, and basic error recovery.
 """
+
 import json
 import os
 import shutil
@@ -15,12 +10,13 @@ import time
 from pathlib import Path
 from typing import Any, List, Dict
 
-class JSONHandler:
-    """Handles reading and writing JSON files safely."""
 
-    # read JSON file, return list or empty if missing/invalid
+class JSONHandler:
+    """Handles safe JSON file I/O."""
+
     @staticmethod
     def read_json(file_path: Path) -> List[Dict[str, Any]]:
+        """Read a JSON file and return its contents (empty list if missing or invalid)."""
         if not file_path.exists():
             file_path.write_text("[]")
             return []
@@ -30,16 +26,16 @@ class JSONHandler:
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
-    # write JSON data atomically with Windows-safe fallback
     @staticmethod
     def write_json(file_path: Path, data: List[Dict[str, Any]]) -> None:
+        """Write JSON data atomically with a Windows-safe fallback."""
         tmp_path = file_path.with_suffix(".tmp")
 
-        # write to temp file
+        # Write to a temporary file first
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
-        # replace file atomically or retry if locked
+        # Replace file safely (retry if file is locked)
         try:
             os.replace(tmp_path, file_path)
         except PermissionError:
@@ -50,7 +46,7 @@ class JSONHandler:
                     return
                 except PermissionError:
                     continue
-            # final fallback if file still locked
+            # Final fallback
             try:
                 os.remove(file_path)
             except FileNotFoundError:

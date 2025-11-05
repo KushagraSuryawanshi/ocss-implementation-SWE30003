@@ -1,10 +1,8 @@
 """
-File: report_service.py
-Layer: Business Logic
-Component: Report Service
-Description:
-    Generates sales and order analytics using Strategy Pattern.
+Generates reports for sales and orders using the Strategy pattern.
+Each report type (daily, monthly, all-time) summarizes order data differently.
 """
+
 from typing import List, Dict
 from business.models.report import (
     Report,
@@ -14,12 +12,14 @@ from business.models.report import (
 )
 
 class ReportService:
-    # generate report based on given period
+    """Selects and runs the appropriate reporting strategy."""
+
     def generate(self, period: str) -> List[Dict]:
-        p = period.lower()
-        if p == "daily":
+        period = period.lower()
+
+        if period == "daily":
             strategy = DailyReportStrategy()
-        elif p == "monthly":
+        elif period == "monthly":
             strategy = MonthlyReportStrategy()
         else:
             strategy = AllTimeReportStrategy()

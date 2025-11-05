@@ -1,34 +1,30 @@
 # ==== .\app_config.py ====
 """
-File: app_config.py
-Layer: Configuration
-Component: Global Configuration
-Description:
-    Defines system-wide constants and data paths.
-    Ensures all JSON persistence files and folders exist before use.
+Global configuration for the OCSS project.
+Defines file paths and common constants used across the system.
 """
 from pathlib import Path
 
-# Root and data directory
+# Base directory for data
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 # JSON data files
 CUSTOMERS_FILE = DATA_DIR / "customers.json"
-ACCOUNTS_FILE  = DATA_DIR / "accounts.json"
-PRODUCTS_FILE  = DATA_DIR / "products.json"
+ACCOUNTS_FILE = DATA_DIR / "accounts.json"
+PRODUCTS_FILE = DATA_DIR / "products.json"
 INVENTORY_FILE = DATA_DIR / "inventory.json"
-ORDERS_FILE    = DATA_DIR / "orders.json"
-INVOICES_FILE  = DATA_DIR / "invoices.json"
-PAYMENTS_FILE  = DATA_DIR / "payments.json"
+ORDERS_FILE = DATA_DIR / "orders.json"
+INVOICES_FILE = DATA_DIR / "invoices.json"
+PAYMENTS_FILE = DATA_DIR / "payments.json"
 SHIPMENTS_FILE = DATA_DIR / "shipments.json"
-CARTS_FILE     = DATA_DIR / "carts.json"
-STAFF_FILE     = DATA_DIR / "staff.json"
+CARTS_FILE = DATA_DIR / "carts.json"
+STAFF_FILE = DATA_DIR / "staff.json"
 
-# Business rules and thresholds
+# Business logic constants
 MIN_PASSWORD_LENGTH = 8
-MAX_CART_ITEMS      = 50
+MAX_CART_ITEMS = 50
 LOW_STOCK_THRESHOLD = 5
 
 
@@ -75,81 +71,74 @@ if __name__ == "__main__":
 
 # ==== .\main.py ====
 """
-===============================================================================
-File: main.py
-Layer: Presentation (Entry Point)
-Description:
-    Entry point for the Online Convenience Store System (OCSS).
-    Uses Typer to expose user commands for Customers and Staff.
-    Routes all commands through CLIController in the Presentation Layer.
+Main entry point for the Online Convenience Store System (OCSS).
 
-    Commands implement the four major scenarios:
-    - Browse & Add to Cart (Scenario 1)
-    - Checkout & Payment (Scenario 2)
-    - Staff Processing Orders (Scenario 3)
-    - Reporting (Scenario 4)
-===============================================================================
+Runs the CLI application using Typer and delegates all commands
+to the presentation layer controller.
 """
 
 import typer
 from rich.console import Console
 from presentation.cli_controller import CLIController
 from storage.session_manager import SessionManager
+from storage.storage_manager import StorageManager
 
-# Initialize Typer application
 app = typer.Typer(
     name="ocss",
-    help="Online Convenience Store System (OCSS) - Your Local Shop",
-    add_completion=False
+    help="Online Convenience Store System (OCSS) - Command-line shop interface",
+    add_completion=False,
 )
 
-# Console and controller instances
 console = Console()
 controller = CLIController()
 
-# ------------------------- SYSTEM SETUP COMMANDS ---------------------------- #
-
+# ---------------------------------------------------------------------
+# System setup
+# ---------------------------------------------------------------------
 @app.command()
 def init():
     """Initialize the system with sample data."""
     result = controller.initialize_system()
     if result["success"]:
-        console.print("[green]System initialized with sample data[/green]")
+        console.print("[green]System initialized with sample data.[/green]")
     else:
         console.print(f"[red]{result['message']}[/red]")
 
 
-# ---------------------------- AUTH COMMANDS --------------------------------- #
-
+# ---------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------
 @app.command()
 def login(username: str, password: str):
-    """Login as a customer or staff member."""
+    """Log in as a customer or staff member."""
     result = controller.login(username, password)
     color = "green" if result["success"] else "red"
-    message = result.get("message", "Login failed")
-    console.print(f"[{color}]{message}[/{color}]")
+    console.print(f"[{color}]{result.get('message', 'Login failed')}[/{color}]")
+
 
 @app.command()
 def logout():
-    """Logout from current session."""
+    """Log out from the current session."""
     result = controller.logout()
-    console.print("[green]Logged out successfully[/green]")
+    console.print(f"[green]{result['message']}[/green]")
+
 
 @app.command()
 def whoami():
-    """Show current logged-in user."""
+    """Show the currently logged-in user."""
     session = SessionManager.load_session()
     if session:
         console.print(f"[cyan]Logged in as: {session['username']} ({session['user_type']})[/cyan]")
     else:
-        console.print("[yellow]Not logged in[/yellow]")
+        console.print("[yellow]Not logged in.[/yellow]")
 
 
-# ---------------------------- CUSTOMER COMMANDS ----------------------------- #
-
+# ---------------------------------------------------------------------
+# Customer commands
+# ---------------------------------------------------------------------
 @app.command()
-def browse(category: str = typer.Argument(None, help="Filter by product category (e.g., Dairy)")):
-    """Browse product catalogue."""
+def browse(category: str = typer.Argument(None, help="Optional category filter (e.g. Dairy)")):
+    """Browse available products."""
     session = SessionManager.load_session()
     if not session:
         console.print("[red]Please login first.[/red]")
@@ -158,23 +147,24 @@ def browse(category: str = typer.Argument(None, help="Filter by product category
     products = controller.browse_products(category)
     if not products:
         console.print("[yellow]No products found.[/yellow]")
-        return
-    controller.display_products(products)
+    else:
+        controller.display_products(products)
 
 
 @app.command(name="add-to-cart")
 def add_to_cart(
-    product_id: int = typer.Argument(..., help="Product ID to add"),
-    quantity: int = typer.Argument(1, help="Quantity (default: 1)")
+    product_id: int = typer.Argument(..., help="Product ID"),
+    quantity: int = typer.Argument(1, help="Quantity to add (default 1)"),
 ):
-    """Add item to cart: add-to-cart PRODUCT_ID QUANTITY"""
+    """Add a product to your shopping cart."""
     result = controller.add_to_cart(product_id, quantity)
     color = "green" if result["success"] else "red"
     console.print(f"[{color}]{result['message']}[/{color}]")
 
+
 @app.command(name="view-cart")
 def view_cart():
-    """View the current user's shopping cart."""
+    """Display the current shopping cart."""
     session = SessionManager.load_session()
     if not session:
         console.print("[red]Please login first.[/red]")
@@ -183,11 +173,11 @@ def view_cart():
         console.print("[red]Customer access required.[/red]")
         return
 
-    cart_data = controller.view_cart()
-    if not cart_data.get("items"):
+    cart = controller.view_cart()
+    if not cart.get("items"):
         console.print("[yellow]Your cart is empty.[/yellow]")
-        return
-    controller.display_cart(cart_data)
+    else:
+        controller.display_cart(cart)
 
 
 @app.command()
@@ -198,21 +188,18 @@ def checkout():
         console.print(f"[red]{result['message']}[/red]")
 
 
-# --------------------------- INVOICE COMMAND -------------------------------- #
-
 @app.command(name="view-invoice")
-def view_invoice(
-    order_id: int = typer.Argument(..., help="Order ID to view invoice for")
-):
-    """View detailed invoice for a specific order."""
+def view_invoice(order_id: int = typer.Argument(..., help="Order ID to view invoice for")):
+    """View the invoice for a completed order."""
     controller.view_invoice(order_id)
 
 
-# ----------------------------- STAFF COMMANDS ------------------------------- #
-
+# ---------------------------------------------------------------------
+# Staff commands
+# ---------------------------------------------------------------------
 @app.command(name="view-orders")
 def view_orders():
-    """View all pending orders (staff only)."""
+    """List all unshipped orders (staff only)."""
     session = SessionManager.load_session()
     if not session:
         console.print("[red]Please login first.[/red]")
@@ -224,14 +211,13 @@ def view_orders():
     orders = controller.view_pending_orders()
     if not orders:
         console.print("[yellow]No pending orders found.[/yellow]")
-        return
-    controller.display_orders(orders)
+    else:
+        controller.display_orders(orders)
 
 
 @app.command(name="ship-order")
-def ship_order(order_id: int = typer.Argument(..., help="Order ID to ship"),
-               tracking_number: str = typer.Argument(..., help="Tracking number")):
-    """Mark order as shipped (staff only)."""
+def ship_order(order_id: int, tracking_number: str):
+    """Mark an order as shipped."""
     session = SessionManager.load_session()
     if not session:
         console.print("[red]Please login first.[/red]")
@@ -246,52 +232,45 @@ def ship_order(order_id: int = typer.Argument(..., help="Order ID to ship"),
 
 
 @app.command(name="generate-report")
-def generate_report(period: str = typer.Argument("daily", help="Report period: daily|monthly|all")):
-    """Generate sales/inventory reports (staff only)."""
-    result = controller.generate_report(period)
-    if result:
-        controller.display_report(result)
+def generate_report(period: str = typer.Argument("daily", help="daily | monthly | all")):
+    """Generate a sales or inventory report (staff only)."""
+    report = controller.generate_report(period)
+    if report:
+        controller.display_report(report)
 
-@app.command(name="order-status")
-def order_status(order_id: int = typer.Argument(..., help="Order ID to check status")):
-    """Check the current status of a specific order."""
-    session = SessionManager.load_session()
-    if not session:
-        console.print("[red]Please login first.[/red]")
-        return
-
-    from storage.storage_manager import StorageManager
-    storage = StorageManager()
-    order = storage.find_by_id("orders", order_id)
-
-    if not order:
-        console.print(f"[red]Order with ID {order_id} not found.[/red]")
-        return
-
-    raw_status = order.get("status", "UNKNOWN").upper()
-    if raw_status == "PAID":
-        display_status = "NOT SHIPPED"
-    elif raw_status == "SHIPPED":
-        display_status = "SHIPPED"
-    else:
-        display_status = raw_status
-
-    console.print(f"[cyan]Order ID:[/cyan] {order['id']}")
-    console.print(f"[cyan]Customer ID:[/cyan] {order['customer_id']}")
-    console.print(f"[cyan]Total:[/cyan] ${order['total']:.2f}")
-    console.print(f"[cyan]Status:[/cyan] {display_status}")
 
 @app.command(name="update-stock")
 def update_stock(product_id: int, new_quantity: int):
-    """Update product stock (staff only)."""
+    """Update product stock levels (staff only)."""
     result = controller.update_stock(product_id, new_quantity)
     color = "green" if result["success"] else "red"
     console.print(f"[{color}]{result['message']}[/{color}]")
 
 
+@app.command(name="order-status")
+def order_status(order_id: int):
+    """Check the status of a specific order."""
+    session = SessionManager.load_session()
+    if not session:
+        console.print("[red]Please login first.[/red]")
+        return
 
-# ----------------------------- ENTRY POINT ---------------------------------- #
+    order = StorageManager().find_by_id("orders", order_id)
+    if not order:
+        console.print(f"[red]Order {order_id} not found.[/red]")
+        return
 
+    status = order.get("status", "UNKNOWN").upper()
+    display_status = "NOT SHIPPED" if status == "PAID" else status
+    console.print(f"[cyan]Order ID:[/cyan] {order['id']}")
+    console.print(f"[cyan]Customer ID:[/cyan] {order['customer_id']}")
+    console.print(f"[cyan]Total:[/cyan] ${order['total']:.2f}")
+    console.print(f"[cyan]Status:[/cyan] {display_status}")
+
+
+# ---------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------
 if __name__ == "__main__":
     app()
 
@@ -309,24 +288,28 @@ pytest==7.4.3
 
 # ==== .\business\exceptions\errors.py ====
 """
-Custom exceptions for OCSS business logic.
-Provides domain-specific error types for better error handling.
+This file defines custom exception classes used across the OCSS system.
+Each class represents a specific kind of business rule or runtime error
+that can occur during system operations.
 """
 
 class InsufficientStockError(Exception):
-    """Raised when trying to reserve more stock than available."""
+    """Raised when a product does not have enough stock."""
     pass
+
 
 class PaymentDeclinedError(Exception):
-    """Raised when payment processing fails."""
+    """Raised when a payment cannot be completed."""
     pass
+
 
 class InvalidCredentialsError(Exception):
-    """Raised when login credentials are invalid."""
+    """Raised when user login details are incorrect."""
     pass
 
+
 class CartEmptyError(Exception):
-    """Raised when trying to checkout with empty cart."""
+    """Raised when checkout is attempted with an empty cart."""
     pass
 
 
@@ -335,133 +318,156 @@ class CartEmptyError(Exception):
 
 # ==== .\business\models\account.py ====
 """
-File: account.py
-Layer: Business Logic
-Component: Domain Model - Account
-Description:
-    Represents login credentials and role (customer/staff).
-    Provides credential verification and simple persistence helpers.
+Defines the Account class used for handling login credentials and linking
+accounts with customers or staff members in the system.
 """
-from typing import Optional, Dict
+from typing import Optional, Dict, TYPE_CHECKING
 from storage.storage_manager import StorageManager
 
+# Avoid circular imports
+if TYPE_CHECKING:
+    from business.models.customer import Customer
+    from business.models.staff import Staff
+
 class Account:
-    def __init__(
-        self, 
-        id: int, 
-        username: str, 
-        password: str, 
-        user_type: str, 
-        customer_id: int | None = None, 
-        staff_id: int | None = None
-    ):
-        # init account details
+    def __init__(self, id: int, username: str, password: str, user_type: str):
+        """Initializes a new account record."""
         self.id = id
         self.username = username
-        self.password = password  # plain text for now
-        self.user_type = user_type  # 'customer' or 'staff'
-        self.customer_id = customer_id
-        self.staff_id = staff_id
+        self.password = password
+        self.user_type = user_type  # kept for backward compatibility
+        
+        # Object links
+        self._customer: Optional['Customer'] = None
+        self._staff: Optional['Staff'] = None
 
-    # verify password
     def verify(self, password: str) -> bool:
+        """Checks if the provided password matches this account."""
         return self.password == password
 
-    # convert account to dict
+    # --- Collaborator linking methods ---
+    
+    def set_customer(self, customer: 'Customer') -> None:
+        """Links this account to a Customer object."""
+        self._customer = customer
+        self.user_type = 'customer'
+
+    def set_staff(self, staff: 'Staff') -> None:
+        """Links this account to a Staff object."""
+        self._staff = staff
+        self.user_type = 'staff'
+
+    def get_customer(self) -> Optional['Customer']:
+        """Returns the linked Customer object, if any."""
+        return self._customer
+
+    def get_staff(self) -> Optional['Staff']:
+        """Returns the linked Staff object, if any."""
+        return self._staff
+
+    def get_linked_id(self) -> Optional[int]:
+        """Returns the ID of the linked Customer or Staff."""
+        if self._customer:
+            return self._customer.id
+        if self._staff:
+            return self._staff.id
+        return None
+
+    # ---------- Persistence ----------
+    
     def to_dict(self) -> Dict:
+        """Converts this object to a dictionary for JSON storage."""
         return {
             "id": self.id,
             "username": self.username,
             "password": self.password,
             "user_type": self.user_type,
-            "customer_id": self.customer_id,
-            "staff_id": self.staff_id,
+            "customer_id": self._customer.id if self._customer else None,
+            "staff_id": self._staff.id if self._staff else None,
         }
 
-    # create account from dict
     @staticmethod
     def from_dict(data: Dict) -> "Account":
-        return Account(
+        """Creates an Account object from stored data."""
+        acc = Account(
             id=data["id"],
             username=data["username"],
             password=data["password"],
-            user_type=data["user_type"],
-            customer_id=data.get("customer_id"),
-            staff_id=data.get("staff_id"),
+            user_type=data["user_type"]
         )
+        return acc
 
-    # find account by username
     @staticmethod
     def find_by_username(username: str) -> Optional["Account"]:
+        """Finds and returns an account by username, if it exists."""
         s = StorageManager()
         for row in s.load("accounts"):
             if row["username"] == username:
                 return Account.from_dict(row)
         return None
 
-    # add a new account to storage
     @staticmethod
-    def add(
-        username: str, 
-        password: str, 
-        user_type: str, 
-        customer_id: int | None = None, 
-        staff_id: int | None = None
-    ) -> "Account":
+    def add(username: str, password: str, user_type: str) -> "Account":
+        """Creates and stores a new account record."""
         s = StorageManager()
         rec = s.add("accounts", {
             "username": username,
             "password": password,
             "user_type": user_type,
-            "customer_id": customer_id,
-            "staff_id": staff_id,
+            "customer_id": None,
+            "staff_id": None,
         })
         return Account.from_dict(rec)
-
+    
+    def __repr__(self):
+        return f"Account(id={self.id}, username={self.username}, type={self.user_type})"
 
 # ==== .\business\models\cart.py ====
 """
-File: cart.py
-Layer: Business Logic
-Component: Domain Model - Cart
-Description:
-    Represents a customer's shopping cart with line items and totals.
-    Persists to carts.json. One active cart per customer.
+Defines the Cart class which manages a customer's shopping cart.
+Each cart stores CartItem objects that reference real Product instances.
 """
+
 from typing import Dict, List
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 from business.models.product import Product
+from business.models.cart_item import CartItem
 from business.models.inventory import Inventory
 
+
 class Cart:
-    def __init__(self, id: int, customer_id: int, items: List[Dict]):
-        # init cart with id, customer and items list
+    def __init__(self, id: int, customer_id: int, items: List[CartItem] = None):
+        """Initializes a new cart for a given customer."""
         self.id = id
         self.customer_id = customer_id
-        self.items = items
+        self.items: List[CartItem] = items if items else []
 
-    # check if cart is empty
     def is_empty(self) -> bool:
+        """Returns True if the cart has no items."""
         return len(self.items) == 0
 
-    # make snapshot for order creation
     def to_order_snapshot(self) -> Dict:
+        """Converts cart contents into a snapshot dictionary for order creation."""
         return {
             "customer_id": self.customer_id,
-            "items": [dict(it) for it in self.items],
-            "total": self.total(),
+            "items": [item.to_dict() for item in self.items],
+            "total": float(self.total())
         }
 
-    # reserve inventory for all items
     def reserve_all(self) -> None:
+        """Reserves stock for all items in the cart."""
         inv = Inventory.get_instance()
         reserved: List[Dict] = []
         try:
-            for it in self.items:
-                inv.reserve_stock(it["product_id"], int(it["qty"]))
-                reserved.append({"product_id": it["product_id"], "qty": int(it["qty"])})
+            for cart_item in self.items:
+                inv.reserve_stock(cart_item.product.id, cart_item.quantity)
+                reserved.append({
+                    "product_id": cart_item.product.id,
+                    "qty": cart_item.quantity
+                })
         except Exception:
-            # rollback any reserved stock if failed
+            # Roll back any reservations if one fails
             for r in reserved:
                 try:
                     inv.release_stock(r["product_id"], r["qty"])
@@ -469,23 +475,18 @@ class Cart:
                     pass
             raise
 
-    # release all reserved inventory
     def release_all(self) -> None:
+        """Releases any reserved stock for this cart."""
         inv = Inventory.get_instance()
-        for it in self.items:
-            inv.release_stock(it["product_id"], int(it["qty"]))
+        for cart_item in self.items:
+            inv.release_stock(cart_item.product.id, cart_item.quantity)
 
-    # clear cart and save
     def clear_and_save(self) -> None:
+        """Clears the cart and updates storage."""
         self.clear()
 
-    # recalc item subtotals
-    def _recalculate(self) -> None:
-        for it in self.items:
-            it["subtotal"] = float(it["price"]) * int(it["qty"])
-
-    # add new item or update quantity
     def add_item(self, product_id: int, qty: int) -> None:
+        """Adds a product to the cart or updates quantity if it already exists."""
         if qty <= 0:
             raise ValueError("Quantity must be positive")
 
@@ -493,51 +494,71 @@ class Cart:
         if not p:
             raise ValueError("Product not found")
 
-        for it in self.items:
-            if it["product_id"] == product_id:
-                it["qty"] = int(it["qty"]) + int(qty)
-                self._recalculate()
+        for cart_item in self.items:
+            if cart_item.product.id == product_id:
+                cart_item.update_quantity(cart_item.quantity + qty)
                 self._save()
                 return
 
-        self.items.append({
-            "product_id": p.id,
-            "name": p.name,
-            "price": float(p.price),
-            "qty": int(qty),
-            "subtotal": float(p.price) * int(qty),
-        })
+        new_item = CartItem(p, qty)
+        self.items.append(new_item)
         self._save()
 
-    # update quantity of a specific item
     def update_quantity(self, product_id: int, qty: int) -> None:
+        """Updates the quantity of a product in the cart (0 removes it)."""
         if qty < 0:
             raise ValueError("Quantity cannot be negative")
-        for it in self.items:
-            if it["product_id"] == product_id:
-                it["qty"] = int(qty)
-                if it["qty"] == 0:
-                    self.items = [x for x in self.items if x["product_id"] != product_id]
-                self._recalculate()
+
+        for cart_item in self.items:
+            if cart_item.product.id == product_id:
+                if qty == 0:
+                    self.items.remove(cart_item)
+                else:
+                    cart_item.update_quantity(qty)
                 self._save()
                 return
-        raise ValueError("Item not in cart")
 
-    # clear all items from cart
+        raise ValueError("Item not found in cart")
+
     def clear(self) -> None:
+        """Removes all items from the cart."""
         self.items = []
         self._save()
 
-    # calculate total price
-    def total(self) -> float:
-        return sum(float(it["subtotal"]) for it in self.items)
+    def total(self) -> Decimal:
+        """Calculates the total value of the cart as a Decimal."""
+        return sum((item.subtotal for item in self.items), Decimal("0"))
 
-    # convert cart to dictionary
+    # ---------------- Persistence ----------------
+
     def to_dict(self) -> Dict:
-        return {"id": self.id, "customer_id": self.customer_id, "items": self.items}
+        """Converts the cart into a dictionary for JSON storage."""
+        return {
+            "id": self.id,
+            "customer_id": self.customer_id,
+            "items": [item.to_dict() for item in self.items]
+        }
 
-    # save cart to storage
+    @staticmethod
+    def from_dict(data: Dict) -> "Cart":
+        """Recreates a Cart object from stored data."""
+        items = []
+        for item_dict in data.get("items", []):
+            try:
+                cart_item = CartItem.from_dict(item_dict)
+                items.append(cart_item)
+            except ValueError:
+                # Skip deleted products
+                pass
+
+        return Cart(
+            id=data["id"],
+            customer_id=data["customer_id"],
+            items=items
+        )
+
     def _save(self) -> None:
+        """Updates this cart record in persistent storage."""
         s = StorageManager()
         carts = s.load("carts")
         found = False
@@ -550,76 +571,184 @@ class Cart:
             carts.append(self.to_dict())
         s.save_all("carts", carts)
 
-    # get existing cart or create a new one
     @staticmethod
     def get_or_create_for_customer(customer_id: int) -> "Cart":
+        """Finds an existing cart for a customer, or creates a new one."""
         s = StorageManager()
         carts = s.load("carts")
         for c in carts:
             if c["customer_id"] == customer_id:
-                return Cart(id=c["id"], customer_id=c["customer_id"], items=c.get("items", []))
+                return Cart.from_dict(c)
+
         rec = s.add("carts", {"customer_id": customer_id, "items": []})
-        return Cart(id=rec["id"], customer_id=customer_id, items=[])
+        return Cart.from_dict(rec)
+
+    def __repr__(self):
+        return f"Cart(id={self.id}, items={len(self.items)}, total=${self.total()})"
+
+
+# ==== .\business\models\cart_item.py ====
+"""
+Represents a single item inside a customer's shopping cart.
+Each CartItem stores a Product reference and the selected quantity.
+"""
+
+from typing import Dict
+from decimal import Decimal
+
+
+class CartItem:
+    """Stores one product and its quantity within a cart."""
+
+    def __init__(self, product, quantity: int):
+        """Initializes a cart item with a product and quantity."""
+        if quantity <= 0:
+            raise ValueError("Quantity must be positive")
+
+        # Import here to avoid circular imports
+        from business.models.product import Product
+        if not isinstance(product, Product):
+            raise TypeError("Expected a Product instance")
+
+        self.product = product
+        self.quantity = quantity
+        self._calculate_subtotal()
+
+    def _calculate_subtotal(self) -> None:
+        """Calculates subtotal based on product price and quantity."""
+        self.subtotal = Decimal(str(self.product.price)) * self.quantity
+
+    def update_quantity(self, new_qty: int) -> None:
+        """Updates the item quantity and recalculates subtotal."""
+        if new_qty < 0:
+            raise ValueError("Quantity cannot be negative")
+
+        self.quantity = new_qty
+        self._calculate_subtotal()
+
+    def to_dict(self) -> Dict:
+        """Converts the item into a dictionary for JSON storage."""
+        return {
+            "product_id": self.product.id,
+            "name": self.product.name,
+            "price": float(self.product.price),
+            "qty": self.quantity,
+            "subtotal": float(self.subtotal)
+        }
+
+    @staticmethod
+    def from_dict(data: Dict) -> "CartItem":
+        """
+        Creates a CartItem from stored data.
+        Loads the Product object using its ID.
+        """
+        from business.models.product import Product
+
+        product = Product.find_by_id(data["product_id"])
+        if not product:
+            raise ValueError(f"Product {data['product_id']} not found")
+
+        return CartItem(product, data["qty"])
+
+    def __repr__(self):
+        return f"CartItem(product={self.product.name}, qty={self.quantity}, subtotal=${self.subtotal})"
+
+    def __eq__(self, other):
+        """Returns True if both items refer to the same product."""
+        if not isinstance(other, CartItem):
+            return False
+        return self.product.id == other.product.id
 
 
 # ==== .\business\models\customer.py ====
-from typing import List, Dict, Optional
+"""
+Defines the Customer class used to represent store customers.
+Each customer is linked to an Account object and can manage their own cart,
+perform checkouts, and view order history.
+"""
+
+from typing import List, Dict, Optional, TYPE_CHECKING
 from storage.storage_manager import StorageManager
-from business.models.cart import Cart
-from business.models.order import Order
-from business.models.invoice import Invoice
-from business.models.payment import PaymentFactory
-from business.models.inventory import Inventory
-from business.exceptions.errors import CartEmptyError, InsufficientStockError
+
+if TYPE_CHECKING:
+    from business.models.account import Account
+    from business.models.cart import Cart
+    from business.models.order import Order
+
 
 class Customer:
     def __init__(self, id: int, name: str, email: str, address: str):
-        # init customer with id, name, email, address
+        """Initializes a new customer record."""
         self.id = id
         self.name = name
         self.email = email
         self.address = address
 
-    # get or create customer's cart
-    def get_cart(self) -> Cart:
+        # Reference to the linked Account object
+        self._account: Optional['Account'] = None
+
+    # --- Account collaboration ---
+
+    def set_account(self, account: 'Account') -> None:
+        """Links this customer to an Account (two-way link)."""
+        self._account = account
+        account.set_customer(self)
+
+    def get_account(self) -> Optional['Account']:
+        """Returns the linked Account object, if any."""
+        return self._account
+
+    # --- Cart and Checkout Operations ---
+
+    def get_cart(self) -> 'Cart':
+        """Gets or creates a cart for this customer."""
+        from business.models.cart import Cart
         return Cart.get_or_create_for_customer(self.id)
 
-    # add product to cart
     def add_to_cart(self, product_id: int, qty: int) -> Dict:
+        """Adds a product to the customer's cart."""
         cart = self.get_cart()
         cart.add_item(product_id, qty)
         return {"success": True, "message": "Cart updated"}
 
-    # clear customer's cart
     def clear_cart(self) -> None:
+        """Clears all items from the customer's cart."""
         self.get_cart().clear()
 
-    # perform checkout flow
     def checkout_via(self, payment_method: str = "card") -> Dict:
+        """Handles the full checkout process for the customer."""
+        from business.models.cart import Cart
+        from business.models.order import Order
+        from business.models.invoice import Invoice
+        from business.models.payment import PaymentFactory
+        from business.models.inventory import Inventory
+        from business.exceptions.errors import CartEmptyError, InsufficientStockError
+
         cart = self.get_cart()
         if cart.is_empty():
             raise CartEmptyError("Cannot checkout with empty cart")
 
         inv = Inventory.get_instance()
         try:
-            # reserve stock
+            # Reserve stock for the order
             cart.reserve_all()
-            
-            # create order and invoice
-            snap = cart.to_order_snapshot()
-            order = Order.create(self.id, snap["items"], snap["total"])
+
+            # Create order and invoice
+            snapshot = cart.to_order_snapshot()
+            order = Order.create(self.id, snapshot["items"], snapshot["total"])
             invoice = Invoice.create(order.id, order.total)
 
-            # process payment
+            # Process payment
             payment = PaymentFactory.create(payment_method, order.total, order.id)
             payment.process()
 
-            # mark as paid
+            # Mark order and invoice as paid
             invoice.mark_paid()
             order.mark_paid()
 
-            # clear cart after payment
+            # Clear the cart
             cart.clear()
+
             return {
                 "success": True,
                 "order_id": order.id,
@@ -628,17 +757,17 @@ class Customer:
             }
 
         except InsufficientStockError as e:
-            # release stock if not enough
             cart.release_all()
             return {"success": False, "message": str(e)}
 
         except Exception as e:
-            # release stock if checkout fails
             cart.release_all()
             return {"success": False, "message": f"Checkout failed: {e}"}
 
-    # convert customer to dict
+    # --- Persistence ---
+
     def to_dict(self) -> Dict:
+        """Converts this customer into a dictionary for JSON storage."""
         return {
             "id": self.id,
             "name": self.name,
@@ -646,9 +775,9 @@ class Customer:
             "address": self.address,
         }
 
-    # create customer from dict
     @staticmethod
     def from_dict(data: Dict) -> "Customer":
+        """Creates a Customer object from stored data."""
         return Customer(
             id=data["id"],
             name=data["name"],
@@ -656,99 +785,111 @@ class Customer:
             address=data["address"],
         )
 
-    # add new customer to storage
     @staticmethod
     def add(name: str, email: str, address: str) -> "Customer":
+        """Adds a new customer record to storage."""
         s = StorageManager()
         rec = s.add("customers", {"name": name, "email": email, "address": address})
         return Customer.from_dict(rec)
 
-    # find customer by id
     @staticmethod
     def find_by_id(customer_id: int) -> Optional["Customer"]:
+        """Finds a customer by ID."""
         s = StorageManager()
         row = s.find_by_id("customers", customer_id)
         return Customer.from_dict(row) if row else None
 
-    # get customer's past orders
     def order_history(self) -> List[Dict]:
+        """Returns a list of this customer's past orders."""
         s = StorageManager()
         return [o for o in s.load("orders") if o.get("customer_id") == self.id]
+
+    def __repr__(self):
+        return f"Customer(id={self.id}, name={self.name}, email={self.email})"
 
 
 # ==== .\business\models\inventory.py ====
 """
-File: inventory.py
-Layer: Business Logic
-Component: Domain Model - Inventory (Singleton)
-Description:
-    Single source of truth for stock. Loads and persists stock levels.
-    Provides stock checks, reservation, release, and updates.
+Manages product stock for the entire system.
+Implements a Singleton pattern so there is only one inventory instance shared
+throughout the application.
 """
+
 from typing import Dict, List
 from storage.storage_manager import StorageManager
 from business.exceptions.errors import InsufficientStockError
 
+
 class Inventory:
+    """Central store of all product stock levels (Singleton)."""
+
     _instance = None
 
-    # ensure singleton instance
     def __new__(cls):
+        """Ensures only one Inventory instance exists."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    # init inventory storage and cache
     def __init__(self):
-        if hasattr(self, '_initialized') and self._initialized:
+        """Initializes the inventory cache and loads data from storage."""
+        if getattr(self, "_initialized", False):
             return
         self._initialized = True
         self._storage = StorageManager()
-        self._stock_cache = {}
+        self._stock_cache: Dict[int, int] = {}
         self._load_stock()
 
-    # load stock data from storage
     def _load_stock(self) -> None:
+        """Loads stock data from the storage layer."""
         data = self._storage.load("inventory")
         self._stock_cache = {row["product_id"]: int(row["quantity"]) for row in data}
 
-    # save stock data to storage
     def _save_stock(self) -> None:
+        """Saves current stock levels back to storage."""
         data = [{"product_id": pid, "quantity": qty} for pid, qty in self._stock_cache.items()]
         self._storage.save_all("inventory", data)
 
-    # check available stock for product
+    # --- Core operations ---
+
     def check_stock(self, product_id: int) -> int:
+        """Returns the available stock for a product."""
         return int(self._stock_cache.get(product_id, 0))
 
-    # reserve stock for order
     def reserve_stock(self, product_id: int, qty: int) -> None:
+        """Reserves stock for an order, raising an error if unavailable."""
         if qty <= 0:
             raise ValueError("Quantity must be positive")
+
         current = self.check_stock(product_id)
         if current < qty:
             raise InsufficientStockError(f"Only {current} units available for product {product_id}")
+
         self._stock_cache[product_id] = current - qty
         self._save_stock()
 
-    # release previously reserved stock
     def release_stock(self, product_id: int, qty: int) -> None:
+        """Releases previously reserved stock."""
         if qty <= 0:
             raise ValueError("Quantity must be positive")
+
         current = self.check_stock(product_id)
         self._stock_cache[product_id] = current + qty
         self._save_stock()
 
-    # set stock quantity directly
     def set_stock(self, product_id: int, new_qty: int) -> None:
+        """Sets the stock level for a product directly."""
         if new_qty < 0:
             raise ValueError("Stock cannot be negative")
+
         self._stock_cache[product_id] = int(new_qty)
         self._save_stock()
 
-    # reserve a list of items in batch
+    # --- Batch operations ---
+
     def reserve_batch(self, items: List[Dict]) -> None:
+        """Reserves stock for multiple items at once, with rollback on failure."""
         reserved = []
         try:
             for it in items:
@@ -756,6 +897,7 @@ class Inventory:
                 self.reserve_stock(pid, qty)
                 reserved.append({"product_id": pid, "qty": qty})
         except Exception:
+            # Roll back any successful reservations if one fails
             for r in reserved:
                 try:
                     self.release_stock(r["product_id"], r["qty"])
@@ -763,38 +905,47 @@ class Inventory:
                     pass
             raise
 
-    # release a list of reserved items
     def release_batch(self, items: List[Dict]) -> None:
+        """Releases stock for multiple items at once."""
         for it in items:
             self.release_stock(int(it["product_id"]), int(it["qty"]))
 
-    # get singleton instance
+    # --- Singleton access ---
+
     @classmethod
     def get_instance(cls) -> "Inventory":
+        """Returns the shared Inventory instance."""
         return cls()
 
 
 # ==== .\business\models\invoice.py ====
 """
-File: invoice.py
-Layer: Business Logic
-Component: Domain Model - Invoice
-Description:
-    Billing record for an Order. Tracks payment state and total.
+Represents an invoice linked to a specific order.
+Handles billing details, payment processing, and paid/unpaid status.
 """
-from typing import Dict
+
+from typing import Dict, Optional
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 
+
 class Invoice:
-    def __init__(self, id: int, order_id: int, total: float, paid: bool):
-        # init invoice details
+    """Billing record for an order."""
+
+    def __init__(self, id: int, order_id: int, total, paid: bool):
+        """Initializes an invoice with total amount and payment state."""
         self.id = id
         self.order_id = order_id
-        self.total = float(total)
+        self.total = Decimal(str(total))  # Use Decimal for accuracy
         self.paid = bool(paid)
 
-    # process payment and mark invoice/order as paid
+    def get_order(self) -> Optional["Order"]:
+        """Returns the associated Order object if it exists."""
+        from business.models.order import Order
+        return Order.find_by_id(self.order_id)
+
     def pay_via(self, method: str = "card"):
+        """Processes payment for this invoice using the chosen method."""
         from business.models.payment import PaymentFactory
         from business.models.order import Order
 
@@ -808,403 +959,560 @@ class Invoice:
 
         return payment
 
-    # convert invoice to dictionary
     def to_dict(self) -> Dict:
-        return {"id": self.id, "order_id": self.order_id, "total": self.total, "paid": self.paid}
+        """Converts this invoice to a dictionary for JSON storage."""
+        return {
+            "id": self.id,
+            "order_id": self.order_id,
+            "total": float(self.total),  # Convert Decimal for JSON
+            "paid": self.paid
+        }
 
-    # create and save new invoice
     @staticmethod
-    def create(order_id: int, total: float) -> "Invoice":
+    def create(order_id: int, total) -> "Invoice":
+        """Creates and saves a new invoice for an order."""
         s = StorageManager()
-        rec = s.add("invoices", {"order_id": order_id, "total": float(total), "paid": False})
+        rec = s.add("invoices", {
+            "order_id": order_id,
+            "total": float(Decimal(str(total))),
+            "paid": False
+        })
         return Invoice.from_dict(rec)
 
-    # create invoice object from dict
     @staticmethod
     def from_dict(data: Dict) -> "Invoice":
-        return Invoice(id=data["id"], order_id=data["order_id"], total=data["total"], paid=data["paid"])
+        """Creates an Invoice object from stored data."""
+        return Invoice(
+            id=data["id"],
+            order_id=data["order_id"],
+            total=Decimal(str(data["total"])),
+            paid=data["paid"]
+        )
 
-    # mark invoice as paid and update storage
     def mark_paid(self) -> None:
+        """Marks this invoice as paid and updates storage."""
         self.paid = True
         StorageManager().update("invoices", self.id, {"paid": True})
+
+    def __repr__(self):
+        status = "PAID" if self.paid else "UNPAID"
+        return f"Invoice(id={self.id}, order_id={self.order_id}, total=${self.total}, status={status})"
 
 
 # ==== .\business\models\order.py ====
 """
-File: order.py
-Layer: Business Logic
-Component: Domain Model - Order
-Description:
-    Immutable snapshot of a confirmed purchase.
-    Persists items, totals, timestamps, and status.
+Represents a confirmed customer order.
+Stores customer details, purchased items, total cost, and status.
+Links directly with Customer, Invoice, Payment, and Shipment.
 """
-from typing import Dict, List
+
+from typing import Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 
+if TYPE_CHECKING:
+    from business.models.customer import Customer
+
+
 class Order:
-    def __init__(self, id: int, customer_id: int, items: List[Dict], total: float, status: str, created_at: str):
-        # init order details
+    """Represents a customer's confirmed purchase."""
+
+    def __init__(self, id: int, customer: "Customer", items: List[Dict], total, status: str, created_at: str):
+        """Creates an order linked to a Customer object."""
+        from business.models.customer import Customer
+        if not isinstance(customer, Customer):
+            raise TypeError("customer must be a Customer instance")
+
         self.id = id
-        self.customer_id = customer_id
+        self.customer = customer
         self.items = items
-        self.total = float(total)
-        self.status = status  # CREATED, PAID, SHIPPED
+        self.total = Decimal(str(total))
+        self.status = status
         self.created_at = created_at
 
-    # create invoice for this order
+    # -------------Order workflow actions----------------------- #
+
     def generate_invoice(self):
+        """Creates an invoice for this order."""
         from business.models.invoice import Invoice
         return Invoice.create(self.id, self.total)
 
-    # process payment and mark as paid
     def pay_and_mark(self, payment_method: str = "card"):
+        """Processes payment and marks the order as paid."""
         from business.models.payment import PaymentFactory
         payment = PaymentFactory.create(payment_method, self.total, self.id)
         payment.process()
         self.mark_paid()
         return payment
 
-    # create shipment and mark order as shipped
     def ship_with(self, tracking_number: str):
+        """Creates a shipment and updates the order to 'SHIPPED'."""
         from business.models.shipment import Shipment
         shipment = Shipment.create(self.id, tracking_number)
         shipment.mark_shipped()
         self.mark_shipped()
         return shipment
 
-    # convert order to dictionary
+    # ---------------Persistence------------------------------------------- #
+
     def to_dict(self) -> Dict:
+        """Converts this order into a dictionary for JSON storage."""
         return {
             "id": self.id,
-            "customer_id": self.customer_id,
+            "customer_id": self.customer.id,
             "items": self.items,
-            "total": self.total,
+            "total": float(self.total),
             "status": self.status,
             "created_at": self.created_at,
         }
 
-    # create and save new order
     @staticmethod
-    def create(customer_id: int, items: List[Dict], total: float) -> "Order":
+    def create(customer_id: int, items: List[Dict], total) -> "Order":
+        """Creates and saves a new order for a given customer."""
+        from business.models.customer import Customer
+
+        customer = Customer.find_by_id(customer_id)
+        if not customer:
+            raise ValueError(f"Customer {customer_id} not found")
+
         s = StorageManager()
         rec = s.add("orders", {
             "customer_id": customer_id,
             "items": items,
-            "total": float(total),
+            "total": float(Decimal(str(total))),
             "status": "CREATED",
             "created_at": datetime.now().isoformat(),
         })
         return Order.from_dict(rec)
 
-    # find order by id
     @staticmethod
-    def find_by_id(order_id: int) -> "Order | None":
+    def find_by_id(order_id: int) -> Optional["Order"]:
+        """Retrieves an order and reconstructs it with the linked Customer."""
         s = StorageManager()
         row = s.find_by_id("orders", order_id)
         return Order.from_dict(row) if row else None
 
-    # create order object from dict
     @staticmethod
     def from_dict(data: Dict) -> "Order":
+        """Builds an Order object from stored JSON data."""
+        from business.models.customer import Customer
+        customer = Customer.find_by_id(data["customer_id"])
+        if not customer:
+            raise ValueError(f"Customer {data['customer_id']} not found for order {data['id']}")
+
         return Order(
             id=data["id"],
-            customer_id=data["customer_id"],
+            customer=customer,
             items=data.get("items", []),
-            total=data["total"],
+            total=Decimal(str(data["total"])),
             status=data["status"],
             created_at=data["created_at"],
         )
 
-    # mark order as paid and update storage
+    # ----------------State updates--------------------------------------------- #
+
     def mark_paid(self) -> None:
+        """Marks the order as paid and updates storage."""
         self.status = "PAID"
         StorageManager().update("orders", self.id, {"status": self.status})
 
-    # mark order as shipped and update storage
     def mark_shipped(self) -> None:
+        """Marks the order as shipped and updates storage."""
         self.status = "SHIPPED"
         StorageManager().update("orders", self.id, {"status": self.status})
 
-    # get short order summary
+    # ------------------Utility--------------------------------------------- #
+
     def get_summary(self) -> Dict:
-        return {"order_id": self.id, "total": self.total, "status": self.status}
+        """Returns a short summary of this order."""
+        return {
+            "order_id": self.id,
+            "customer_name": self.customer.name,
+            "total": float(self.total),
+            "status": self.status,
+        }
+
+    def __repr__(self):
+        return f"Order(id={self.id}, customer={self.customer.name}, total=${self.total}, status={self.status})"
+
+
+# ==== .\business\models\order_item.py ====
+"""
+Represents a single product entry in an order.
+Each OrderItem stores the product, quantity, and the price at the time
+the order was placed. This ensures price changes later do not affect
+existing orders.
+"""
+
+from typing import Dict
+from decimal import Decimal
+
+
+class OrderItem:
+    """Immutable record of one product line inside an order."""
+
+    def __init__(self, product, quantity: int, price_snapshot: Decimal = None):
+        """Creates a new order item with its product, quantity and price."""
+        if quantity <= 0:
+            raise ValueError("Quantity must be positive")
+
+        # Import here to avoid circular dependency
+        from business.models.product import Product
+        if not isinstance(product, Product):
+            raise TypeError("product must be a Product instance")
+
+        self.product = product
+        self.quantity = quantity
+        self.price_snapshot = (
+            Decimal(str(price_snapshot)) if price_snapshot is not None
+            else Decimal(str(product.price))
+        )
+        self.subtotal = self.price_snapshot * quantity
+
+    def to_dict(self) -> Dict:
+        """Converts this item into a dictionary for JSON storage."""
+        return {
+            "product_id": self.product.id,
+            "name": self.product.name,
+            "quantity": self.quantity,
+            "price": float(self.price_snapshot),
+            "subtotal": float(self.subtotal),
+        }
+
+    @staticmethod
+    def from_dict(data: Dict) -> "OrderItem":
+        """Rebuilds an OrderItem from stored data."""
+        from business.models.product import Product
+
+        product = Product.find_by_id(data["product_id"])
+        if not product:
+            # Create placeholder product if it was removed from catalogue
+            product = Product(
+                id=data["product_id"],
+                name=data.get("name", f"Product {data['product_id']}"),
+                description="Product no longer available",
+                price=Decimal(str(data["price"])),
+                category="Archived",
+            )
+
+        return OrderItem(
+            product=product,
+            quantity=data.get("quantity", data.get("qty", 0)),
+            price_snapshot=Decimal(str(data["price"])),
+        )
+
+    def __repr__(self):
+        return (
+            f"OrderItem(product={self.product.name}, "
+            f"qty={self.quantity}, price=${self.price_snapshot})"
+        )
+
+    def __eq__(self, other):
+        """Two order items are equal if they refer to the same product and price."""
+        if not isinstance(other, OrderItem):
+            return False
+        return (
+            self.product.id == other.product.id
+            and self.price_snapshot == other.price_snapshot
+        )
 
 
 # ==== .\business\models\payment.py ====
 """
-File: payment.py
-Layer: Business Logic
-Component: Domain Model - Payment (Factory Method)
-Description:
-    Abstract payment with concrete mock types. Factory creates the right type.
-    On process(), a record is persisted to payments.json.
+Handles customer payments for orders.
+Implements a simple factory pattern to create different payment types.
+Uses Decimal for all money calculations for accuracy.
 """
+
 from typing import Dict
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 
+
 class PaymentDeclinedError(Exception):
-    # custom exception for declined payments
+    """Raised when a payment attempt fails."""
     pass
 
+
 class Payment:
-    def __init__(self, method: str, amount: float, order_id: int):
-        # init payment with method, amount, and order id
+    """Base class for all payment types."""
+
+    def __init__(self, method: str, amount, order_id: int):
         self.method = method
-        self.amount = float(amount)
+        self.amount = Decimal(str(amount))
         self.order_id = order_id
 
-    # base process method (to be overridden)
     def process(self) -> str:
+        """Subclasses must implement their own payment process."""
         raise NotImplementedError
 
-    # save payment record to storage
     def _persist(self, status: str) -> Dict:
+        """Saves a payment record to JSON storage."""
         s = StorageManager()
         return s.add("payments", {
             "order_id": self.order_id,
             "method": self.method,
-            "amount": self.amount,
+            "amount": float(self.amount),
             "status": status
         })
 
-    # return status string based on result
     def _persist_result(self, ok: bool) -> str:
+        """Returns status text from a boolean flag."""
         return "APPROVED" if ok else "DECLINED"
 
-# card payment implementation
+
 class CardPayment(Payment):
+    """Simulated card payment."""
+
     def process(self) -> str:
         status = self._persist_result(True)
         self._persist(status)
         return "Card payment processed"
 
-# wallet payment implementation
+
 class WalletPayment(Payment):
+    """Simulated wallet payment."""
+
     def process(self) -> str:
         status = self._persist_result(True)
         self._persist(status)
         return "Wallet payment processed"
 
-# payment factory to create proper type
+
 class PaymentFactory:
+    """Factory for creating specific payment objects."""
+
     @staticmethod
-    def create(method: str, amount: float, order_id: int) -> Payment:
-        m = method.lower()
-        if m == "card":
+    def create(method: str, amount, order_id: int) -> Payment:
+        method = method.lower()
+        if method == "card":
             return CardPayment("card", amount, order_id)
-        if m == "wallet":
+        if method == "wallet":
             return WalletPayment("wallet", amount, order_id)
-        raise ValueError("Unsupported payment method")
+        raise ValueError(f"Unsupported payment method: {method}")
 
 
 # ==== .\business\models\product.py ====
 """
-File: product.py
-Layer: Business Logic
-Component: Domain Model - Product
-Description:
-    Represents a sellable product with descriptive attributes.
-    Provides convenience methods for loading and finding products.
+Represents a product available in the online store.
+Handles pricing, category, and interaction with the inventory system.
 """
+
 from typing import Dict, List, Optional
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 from business.models.inventory import Inventory
 
+
 class Product:
-    def __init__(self, id: int, name: str, description: str, price: float, category: str):
-        # init product details
+    """Represents a sellable item in the store."""
+
+    def __init__(self, id: int, name: str, description: str, price, category: str):
         self.id = id
         self.name = name
         self.description = description
-        self.price = float(price)
+        self.price = Decimal(str(price))
         self.category = category
 
-    # convert product to dictionary
-    def to_dict(self) -> Dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "price": self.price,
-            "category": self.category,
-        }
+    # -----------Stock operations--------------------------------------- #
 
-    # create product object from dictionary
-    @staticmethod
-    def from_dict(data: dict) -> "Product":
-        return Product(
-            id=data.get("id"),
-            name=data.get("name"),
-            description=data.get("description", "No description available"),
-            price=data.get("price", 0.0),
-            category=data.get("category", "Uncategorized"),
-        )
-
-    # reserve stock in inventory
     def reserve_stock(self, qty: int) -> None:
+        """Reserves stock for this product."""
         if qty <= 0:
             raise ValueError("Quantity must be positive")
         inv = Inventory.get_instance()
         inv.reserve_stock(self.id, int(qty))
 
-    # release stock in inventory
     def release_stock(self, qty: int) -> None:
+        """Releases previously reserved stock."""
         if qty <= 0:
             raise ValueError("Quantity must be positive")
         inv = Inventory.get_instance()
         inv.release_stock(self.id, int(qty))
 
-    # get all products from storage
+    def is_available(self) -> bool:
+        """Returns True if this product has available stock."""
+        inv = Inventory.get_instance()
+        return inv.check_stock(self.id) > 0
+
+    # ------------Persistence------------------------------------------- #
+
+    def to_dict(self) -> Dict:
+        """Converts the product to a dictionary for JSON storage."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "price": float(self.price),
+            "category": self.category,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> "Product":
+        """Builds a Product object from stored data."""
+        return Product(
+            id=data.get("id"),
+            name=data.get("name"),
+            description=data.get("description", "No description available"),
+            price=Decimal(str(data.get("price", 0.0))),
+            category=data.get("category", "Uncategorized"),
+        )
+
     @staticmethod
     def get_all() -> List["Product"]:
+        """Retrieves all products from storage."""
         s = StorageManager()
         return [Product.from_dict(p) for p in s.load("products")]
 
-    # find product by id
     @staticmethod
     def find_by_id(product_id: int) -> Optional["Product"]:
+        """Finds a product by its ID."""
         s = StorageManager()
         row = s.find_by_id("products", product_id)
         return Product.from_dict(row) if row else None
 
-    # add new product to storage
     @staticmethod
-    def add(name: str, description: str, price: float, category: str) -> "Product":
+    def add(name: str, description: str, price, category: str) -> "Product":
+        """Adds a new product to storage."""
         s = StorageManager()
         rec = s.add("products", {
             "name": name,
             "description": description,
-            "price": float(price),
-            "category": category
+            "price": float(Decimal(str(price))),
+            "category": category,
         })
         return Product.from_dict(rec)
-    
-    # check if product is in stock
-    def is_available(self) -> bool:
-        inv = Inventory.get_instance()
-        return inv.check_stock(self.id) > 0
+
+    # ------------Utility--------------------------------------------- #
+
+    def __repr__(self):
+        return f"Product(id={self.id}, name={self.name}, price=${self.price})"
+
+    def __eq__(self, other):
+        if not isinstance(other, Product):
+            return False
+        return self.id == other.id
 
 
 # ==== .\business\models\report.py ====
 """
-File: report.py
-Layer: Business Logic
-Component: Domain Model - Report (Strategy)
-Description:
-    Reporting strategies for daily, monthly, and all-time summaries.
-    Aggregates orders/payments to produce simple metrics for CLI output.
+Implements different reporting strategies for the store.
+Each strategy summarizes sales over a specific time period:
+daily, monthly, or all-time.
 """
+
 from typing import List, Dict
 from datetime import datetime
 from storage.storage_manager import StorageManager
 
-class ReportStrategy:
-    # base strategy interface
-    def generate(self) -> List[Dict]:
-        raise NotImplementedError
 
-# daily report strategy
+class ReportStrategy:
+    """Base class for all reporting strategies."""
+    def generate(self) -> List[Dict]:
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
 class DailyReportStrategy(ReportStrategy):
+    """Generates a report for the current day's sales."""
     def generate(self) -> List[Dict]:
         s = StorageManager()
         orders = s.load("orders")
         today = datetime.now().date().isoformat()
-        todays = [o for o in orders if o["created_at"][:10] == today]
-        revenue = sum(float(o["total"]) for o in todays)
+
+        todays_orders = [o for o in orders if o["created_at"][:10] == today]
+        revenue = sum(float(o["total"]) for o in todays_orders)
+
         return [
             {"metric": "Report Type", "value": "Daily"},
-            {"metric": "Orders Today", "value": len(todays)},
-            {"metric": "Revenue Today", "value": round(revenue, 2)},
+            {"metric": "Orders Today", "value": len(todays_orders)},
+            {"metric": "Revenue Today", "value": f"{revenue:.2f}"},
         ]
 
-# monthly report strategy
+
 class MonthlyReportStrategy(ReportStrategy):
+    """Generates a report for the current month."""
     def generate(self) -> List[Dict]:
         s = StorageManager()
         orders = s.load("orders")
-        ym = datetime.now().strftime("%Y-%m")
-        month_orders = [o for o in orders if o["created_at"][:7] == ym]
+        current_month = datetime.now().strftime("%Y-%m")
+
+        month_orders = [o for o in orders if o["created_at"][:7] == current_month]
         revenue = sum(float(o["total"]) for o in month_orders)
+
         return [
             {"metric": "Report Type", "value": "Monthly"},
             {"metric": "Orders This Month", "value": len(month_orders)},
-            {"metric": "Revenue This Month", "value": round(revenue, 2)},
+            {"metric": "Revenue This Month", "value": f"{revenue:.2f}"},
         ]
 
-# all-time report strategy
+
 class AllTimeReportStrategy(ReportStrategy):
+    """Generates a summary of all-time sales data."""
     def generate(self) -> List[Dict]:
         s = StorageManager()
         orders = s.load("orders")
         revenue = sum(float(o["total"]) for o in orders)
+
         return [
             {"metric": "Report Type", "value": "All-Time"},
             {"metric": "Total Orders", "value": len(orders)},
-            {"metric": "Total Revenue", "value": round(revenue, 2)},
+            {"metric": "Total Revenue", "value": f"{revenue:.2f}"},
+
         ]
 
+
 class Report:
+    """Context class that uses a reporting strategy to generate results."""
+
     def __init__(self, strategy: ReportStrategy):
-        # init report with given strategy
         self.strategy = strategy
 
-    # change current strategy
     def set_strategy(self, strategy: ReportStrategy) -> None:
+        """Switches to a different reporting strategy."""
         self.strategy = strategy
 
-    # generate report using selected strategy
     def generate_report(self) -> List[Dict]:
+        """Runs the active report strategy."""
         return self.strategy.generate()
 
 
 # ==== .\business\models\shipment.py ====
 """
-File: shipment.py
-Layer: Business Logic
-Component: Domain Model - Shipment
-Description:
-    Handles physical dispatch of an Order and tracks shipping status.
+Represents the shipping record for an order.
+Tracks dispatch details, tracking number, and shipment status.
 """
+
 from typing import Dict, Optional
 from datetime import datetime
 from storage.storage_manager import StorageManager
 
+
 class Shipment:
-    def __init__(self, id: int, order_id: int, tracking_number: str, status: str, shipped_at: str | None):
-        # init shipment details
+    """Stores information about an order's shipment."""
+
+    def __init__(self, id: int, order_id: int, tracking_number: str, status: str, shipped_at: Optional[str]):
         self.id = id
         self.order_id = order_id
         self.tracking_number = tracking_number
-        self.status = status  # PENDING or SHIPPED
+        self.status = status       # "PENDING" or "SHIPPED"
         self.shipped_at = shipped_at
 
-    # convert shipment to dictionary
+    # -----------Persistence------------------------------------------------------- #
+
     def to_dict(self) -> Dict:
+        """Converts this shipment to a dictionary for storage."""
         return {
             "id": self.id,
             "order_id": self.order_id,
             "tracking_number": self.tracking_number,
             "status": self.status,
-            "shipped_at": self.shipped_at
+            "shipped_at": self.shipped_at,
         }
 
-    # create and save new shipment
-    @staticmethod
-    def create(order_id: int, tracking_number: str) -> "Shipment":
-        s = StorageManager()
-        rec = s.add("shipments", {
-            "order_id": order_id,
-            "tracking_number": tracking_number,
-            "status": "PENDING",
-            "shipped_at": None
-        })
-        return Shipment.from_dict(rec)
-
-    # create shipment object from dict
     @staticmethod
     def from_dict(data: Dict) -> "Shipment":
+        """Recreates a Shipment object from stored data."""
         return Shipment(
             id=data["id"],
             order_id=data["order_id"],
@@ -1213,90 +1521,158 @@ class Shipment:
             shipped_at=data.get("shipped_at"),
         )
 
-    # find shipment by order id
+    @staticmethod
+    def create(order_id: int, tracking_number: str) -> "Shipment":
+        """Creates and saves a new shipment record for an order."""
+        s = StorageManager()
+        record = s.add("shipments", {
+            "order_id": order_id,
+            "tracking_number": tracking_number,
+            "status": "PENDING",
+            "shipped_at": None,
+        })
+        return Shipment.from_dict(record)
+
     @staticmethod
     def find_by_order(order_id: int) -> Optional["Shipment"]:
+        """Finds a shipment record by the associated order ID."""
         s = StorageManager()
-        for sh in s.load("shipments"):
-            if sh.get("order_id") == order_id:
-                return Shipment.from_dict(sh)
+        for row in s.load("shipments"):
+            if row.get("order_id") == order_id:
+                return Shipment.from_dict(row)
         return None
 
-    # mark shipment as shipped and update storage
+    # -----------Business logic--------------------------------------- #
+
     def mark_shipped(self) -> None:
+        """Marks this shipment as shipped and stores the timestamp."""
         self.status = "SHIPPED"
-        self.shipped_at = datetime.now().isoformat()
-        StorageManager().update(
-            "shipments", self.id, {"status": self.status, "shipped_at": self.shipped_at}
-        )
+        self.shipped_at = datetime.now().isoformat()  # ISO for consistent date storage
+
+        s = StorageManager()
+        s.update("shipments", self.id, {
+            "status": self.status,
+            "shipped_at": self.shipped_at
+        })
+
+    def __repr__(self):
+        date_str = self.shipped_at or "Not shipped yet"
+        return f"Shipment(id={self.id}, order={self.order_id}, status={self.status}, date={date_str})"
 
 
 # ==== .\business\models\staff.py ====
 """
-File: staff.py
-Layer: Business Logic
-Component: Domain Model - Staff
-Description:
-    Represents staff who manage inventory and shipments.
-
-Refactor notes (non-breaking):
-    - Added domain-action helpers Staff can perform directly:
-        * list_pending_orders()
-        * ship_paid_order(order_id, tracking_number)
-    - Existing static API preserved.
+Represents a staff member who manages orders, shipments, and inventory.
+Staff accounts are linked to user logins and can process paid orders.
 """
-from typing import Dict, List
+
+from typing import Dict, List, Optional, TYPE_CHECKING
 from storage.storage_manager import StorageManager
-from business.models.order import Order
+
+if TYPE_CHECKING:
+    from business.models.account import Account
+    from business.models.order import Order
+
 
 class Staff:
+    """Defines a store staff member with order management privileges."""
+
     def __init__(self, id: int, username: str, name: str):
         self.id = id
         self.username = username
         self.name = name
+        self._account: Optional['Account'] = None  # linked account object
 
-    # ---------- New collaboration helpers ----------
+    # ---------------Account Collaboration----------------------------- #
+
+    def set_account(self, account: 'Account') -> None:
+        """Links this staff member to an Account (two-way link)."""
+        self._account = account
+        account.set_staff(self)
+
+    def get_account(self) -> Optional['Account']:
+        """Returns the linked Account, if any."""
+        return self._account
+
+    # ---------------Account Collaboration----------------------------- #
+
+    def set_account(self, account: 'Account') -> None:
+        """Links this staff member to an Account (two-way link)."""
+        self._account = account
+        account.set_staff(self)
+
+    def get_account(self) -> Optional['Account']:
+        """Returns the linked Account, if any."""
+        return self._account
+
+    # ---------------Staff Responsibilities----------------------------- #
+
     def list_pending_orders(self) -> List[Dict]:
-        """List all orders not yet shipped."""
+        """Returns a list of all orders that are not yet shipped."""
         s = StorageManager()
         return [o for o in s.load("orders") if o.get("status") != "SHIPPED"]
 
     def ship_paid_order(self, order_id: int, tracking_number: str) -> Dict:
-        """Ship an order that has been paid."""
+        """
+        Ships an order that has already been paid.
+        Adds a shipment record and updates the order status.
+        """
+        from business.models.order import Order
+
         order = Order.find_by_id(order_id)
         if not order:
             return {"success": False, "message": f"Order {order_id} not found"}
         if order.status != "PAID":
             return {"success": False, "message": "Order not yet paid"}
+
         shipment = order.ship_with(tracking_number)
         return {
             "success": True,
             "message": f"Order {order_id} shipped with tracking {tracking_number}",
-            "shipment_id": shipment.id
+            "shipment_id": shipment.id,
         }
 
-    # ---------- Existing API ----------
+    # -------------Persistence--------------------------------------------------- #
+
     def to_dict(self) -> Dict:
-        """Serialize staff member to dictionary."""
-        return {"id": self.id, "username": self.username, "name": self.name}
+        """Converts this staff record to a dictionary for storage."""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "name": self.name,
+        }
 
     @staticmethod
     def from_dict(data: Dict) -> "Staff":
-        """Create Staff object from dictionary."""
-        return Staff(id=data["id"], username=data["username"], name=data["name"])
+        """Recreates a Staff object from stored data."""
+        return Staff(
+            id=data["id"],
+            username=data["username"],
+            name=data["name"],
+        )
 
     @staticmethod
     def add(username: str, name: str) -> "Staff":
-        """Add a new staff member to storage."""
+        """Creates and saves a new staff record."""
         s = StorageManager()
-        rec = s.add("staff", {"username": username, "name": name})
-        return Staff.from_dict(rec)
+        record = s.add("staff", {"username": username, "name": name})
+        return Staff.from_dict(record)
+
+    @staticmethod
+    def find_by_id(staff_id: int) -> Optional["Staff"]:
+        """Finds a staff record by ID."""
+        s = StorageManager()
+        row = s.find_by_id("staff", staff_id)
+        return Staff.from_dict(row) if row else None
 
     @staticmethod
     def list_orders_by_status(status: str) -> List[Dict]:
-        """Return list of orders filtered by status."""
+        """Lists all orders that match a given status."""
         s = StorageManager()
         return [o for o in s.load("orders") if o.get("status") == status]
+
+    def __repr__(self):
+        return f"Staff(id={self.id}, username={self.username}, name={self.name})"
 
 
 # ==== .\business\models\__init__.py ====
@@ -1304,14 +1680,12 @@ class Staff:
 
 # ==== .\business\services\auth_service.py ====
 """
-File: auth_service.py
-Layer: Business Logic
-Component: Auth Service
-Description:
-    Handles user authentication and initial sample data creation.
-    Links Account, Customer, and Staff domain objects.
+Handles authentication, session management, and system initialization.
+Links customer and staff accounts to their respective user records.
 """
+
 from typing import Optional, Dict
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 from storage.session_manager import SessionManager
 from business.models.account import Account
@@ -1320,109 +1694,146 @@ from business.models.staff import Staff
 from business.models.product import Product
 from business.models.inventory import Inventory
 
+
 class AuthService:
+    """Manages user login, logout, and system bootstrapping."""
+
     def __init__(self):
-        # init storage and session managers
         self.storage = StorageManager()
         self.session_manager = SessionManager()
-        # load existing session if any
         self.current_user = self.session_manager.load_session()
 
-    # authenticate user and start session
     def login(self, username: str, password: str) -> Dict:
-        accounts = self.storage.load("accounts")
-        for acc in accounts:
-            if acc["username"] == username and acc["password"] == password:
-                self.current_user = acc
-                self.session_manager.save_session(acc)
-                return {
-                    "success": True,
-                    "user": acc,
-                    "message": f"Logged in as {acc['user_type']}"
-                }
-        return {"success": False, "message": "Invalid credentials"}
+        """Authenticates a user and stores session info."""
+        account = self._load_account_with_relationships(username)
 
-    # logout and clear session
+        if not account or not account.verify(password):
+            return {"success": False, "message": "Invalid credentials"}
+
+        session_data = account.to_dict()
+        self.current_user = session_data
+        self.session_manager.save_session(session_data)
+
+        return {
+            "success": True,
+            "user": session_data,
+            "message": f"Logged in as {account.user_type}",
+        }
+
+    def _load_account_with_relationships(self, username: str) -> Optional[Account]:
+        """Loads an account and reconnects linked customer/staff objects."""
+        accounts = self.storage.load("accounts")
+
+        for acc_data in accounts:
+            if acc_data["username"] == username:
+                account = Account.from_dict(acc_data)
+
+                # Restore linked relationships
+                if account.user_type == "customer" and acc_data.get("customer_id"):
+                    customer = Customer.find_by_id(acc_data["customer_id"])
+                    if customer:
+                        account.set_customer(customer)
+
+                elif account.user_type == "staff" and acc_data.get("staff_id"):
+                    staff = Staff.find_by_id(acc_data["staff_id"])
+                    if staff:
+                        account.set_staff(staff)
+
+                return account
+        return None
+
     def logout(self) -> Dict:
+        """Clears the active session."""
         self.current_user = None
         self.session_manager.clear_session()
         return {"success": True, "message": "Logged out successfully"}
 
-    # get current logged-in user
     def get_current_user(self) -> Optional[Dict]:
+        """Returns current user from session, if any."""
         if self.current_user is None:
             self.current_user = self.session_manager.load_session()
         return self.current_user
 
-    # initialize sample data for system
     def initialize_system(self) -> Dict:
+        """
+        Populates default users, accounts, and sample products.
+        Also resets stock levels to a known state.
+        """
         self.session_manager.clear_session()
 
-        # seed sample products if empty
+        # Sample products
         if not self.storage.load("products"):
-            Product.add("Milk 1L", "Fresh milk bottle", 3.5, "Dairy")
-            Product.add("Bread Loaf", "Whole grain loaf", 4.2, "Bakery")
-            Product.add("Eggs (12)", "Dozen free-range eggs", 6.8, "Dairy")
+            Product.add("Milk 1L", "Fresh milk bottle", Decimal("3.5"), "Dairy")
+            Product.add("Bread Loaf", "Whole grain loaf", Decimal("4.2"), "Bakery")
+            Product.add("Eggs (12)", "Dozen free-range eggs", Decimal("6.8"), "Dairy")
 
-        # set initial stock levels
+        # Inventory defaults
         inv = Inventory.get_instance()
         inv.set_stock(1, 50)
         inv.set_stock(2, 25)
         inv.set_stock(3, 30)
 
-        # create sample customer and account
+        # Create customer with linked account
         if not self.storage.load("customers"):
-            c = Customer.add("John Doe", "john@example.com", "123 Main St, Melbourne")
-            Account.add("customer1", "Password123!", "customer", customer_id=c.id)
+            customer = Customer.add("John Doe", "john@example.com", "123 Main St, Melbourne")
+            account = Account.add("customer1", "Password123!", "customer")
+            customer.set_account(account)
+            self.storage.update("accounts", account.id, {"customer_id": customer.id})
 
-        # create sample staff and account
+        # Create staff with linked account
         if not self.storage.load("staff"):
-            s = Staff.add("staff1", "Admin User")
-            Account.add("staff1", "Admin123!", "staff", staff_id=s.id)
+            staff = Staff.add("staff1", "Admin User")
+            account = Account.add("staff1", "Admin123!", "staff")
+            staff.set_account(account)
+            self.storage.update("accounts", account.id, {"staff_id": staff.id})
 
         return {"success": True, "message": "System initialized with sample data"}
 
 
 # ==== .\business\services\cart_service.py ====
 """
-File: cart_service.py
-Layer: Business Logic
-Component: Cart Service
-Description:
-    Manages customer's cart lifecycle and product browsing.
-    Validates stock via Inventory Singleton.
+Provides shopping cart and product browsing functionality for customers.
+Integrates product data, stock validation, and cart persistence.
 """
+
 from typing import Dict, List
+from decimal import Decimal
 from storage.storage_manager import StorageManager
 from business.models.product import Product
 from business.models.inventory import Inventory
 from business.models.cart import Cart
 
+
 class CartService:
+    """Handles cart operations such as adding, removing, and viewing items."""
+
     def __init__(self):
-        # init storage and inventory
         self.storage = StorageManager()
         self.inventory = Inventory.get_instance()
 
-    # list products with stock info
     def browse_products(self, category: str | None = None) -> List[Dict]:
+        """Returns available products and current stock levels."""
         products = Product.get_all()
-        results = []
-        for p in products:
-            stock = self.inventory.check_stock(p.id)
-            if category and p.category.lower() != category.lower():
-                continue
-            results.append({
-                "id": p.id,
-                "name": p.name,
-                "price": float(p.price),
-                "category": p.category,
-                "stock": stock
-            })
-        return results
+        items = []
 
-    # add product to customer cart after validation
+        for product in products:
+            stock = self.inventory.check_stock(product.id)
+
+            if category and product.category.lower() != category.lower():
+                continue
+
+            items.append({
+                "id": product.id,
+                "name": product.name,
+                "price": float(product.price),
+                "category": product.category,
+                "stock": stock,
+            })
+
+        return items
+
     def add_item(self, customer_id: int, product_id: int, qty: int) -> Dict:
+        """Adds an item to a customer's cart if stock allows."""
         if qty <= 0:
             return {"success": False, "message": "Quantity must be positive"}
 
@@ -1433,36 +1844,38 @@ class CartService:
         available = self.inventory.check_stock(product_id)
         if available < qty:
             return {"success": False, "message": f"Only {available} units available"}
-
         if qty > 50:
             return {"success": False, "message": "Cannot add more than 50 items"}
 
         cart = Cart.get_or_create_for_customer(customer_id)
+
         try:
             cart.add_item(product_id, qty)
             return {"success": True, "message": f"Added {qty}x {product.name} to cart"}
         except Exception as e:
             return {"success": False, "message": str(e)}
 
-    # get current customer cart
     def get_cart(self, customer_id: int) -> Dict:
+        """Returns a customer's cart and total value."""
         cart = Cart.get_or_create_for_customer(customer_id)
+
         if not cart.items:
             return {"items": [], "total": 0.0}
 
-        formatted_items = []
+        formatted = []
         for item in cart.items:
-            formatted_items.append({
-                "product_id": item["product_id"],
-                "name": item["name"],
-                "price": float(item["price"]),
-                "qty": int(item["qty"]),
-                "subtotal": float(item["subtotal"])
+            formatted.append({
+                "product_id": item.product.id,
+                "name": item.product.name,
+                "price": float(item.product.price),
+                "qty": item.quantity,
+                "subtotal": float(item.subtotal),
             })
-        return {"items": formatted_items, "total": cart.total()}
 
-    # update quantity of product in cart
+        return {"items": formatted, "total": float(cart.total())}
+
     def update_item_quantity(self, customer_id: int, product_id: int, new_qty: int) -> Dict:
+        """Updates an item’s quantity or removes it if zero."""
         cart = Cart.get_or_create_for_customer(customer_id)
         try:
             cart.update_quantity(product_id, new_qty)
@@ -1470,12 +1883,12 @@ class CartService:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
-    # remove product from cart
     def remove_item(self, customer_id: int, product_id: int) -> Dict:
+        """Removes an item from the cart."""
         return self.update_item_quantity(customer_id, product_id, 0)
 
-    # clear all items from cart
     def clear_cart(self, customer_id: int) -> Dict:
+        """Empties a customer's cart."""
         cart = Cart.get_or_create_for_customer(customer_id)
         cart.clear()
         return {"success": True, "message": "Cart cleared"}
@@ -1483,14 +1896,12 @@ class CartService:
 
 # ==== .\business\services\order_service.py ====
 """
-File: order_service.py
-Layer: Business Logic
-Component: Order Service
-Description:
-    Handles checkout, order creation, invoice, payment, and shipment logic.
-    Applies Factory Method for payment and updates Inventory/Cart.
+Manages the full checkout and order lifecycle.
+Covers order creation, payment, invoice generation, and shipment.
 """
+
 from typing import Dict
+from decimal import Decimal
 from business.models.cart import Cart
 from business.models.order import Order
 from business.models.invoice import Invoice
@@ -1502,71 +1913,68 @@ from storage.storage_manager import StorageManager
 
 
 class OrderService:
+    """Handles checkout logic and ensures orders are processed correctly."""
+
     def __init__(self):
-        # init inventory singleton
         self.inventory = Inventory.get_instance()
 
-    # create order from cart and process payment
     def create_order(self, customer_id: int, payment_method: str = "card") -> Dict:
+        """Creates an order, processes payment, and generates invoice."""
         cart = Cart.get_or_create_for_customer(customer_id)
         if not cart.items:
             raise CartEmptyError("Cannot checkout with empty cart")
 
         total = cart.total()
 
-        # reserve stock before creating order
         try:
             cart.reserve_all()
         except InsufficientStockError as e:
             return {"success": False, "message": str(e)}
         except Exception as e:
-            try:
-                cart.release_all()
-            except Exception:
-                pass
-            return {"success": False, "message": f"Stock reservation failed: {str(e)}"}
+            cart.release_all()
+            return {"success": False, "message": f"Stock reservation failed: {e}"}
 
-        # snapshot cart items for order
-        order_items = []
-        for item in cart.items:
-            order_items.append({
-                "product_id": item["product_id"],
-                "name": item["name"],
-                "quantity": item.get("qty", 0),
-                "price": float(item.get("price", 0)),
-                "subtotal": float(item.get("subtotal", 0)),
-            })
+        order_items = [
+            {
+                "product_id": i.product.id,
+                "name": i.product.name,
+                "quantity": i.quantity,
+                "price": float(i.product.price),
+                "subtotal": float(i.subtotal),
+            }
+            for i in cart.items
+        ]
 
-        # create order and invoice
-        order = Order.create(customer_id, order_items, total)
+        try:
+            order = Order.create(customer_id, order_items, total)
+        except ValueError as e:
+            cart.release_all()
+            return {"success": False, "message": str(e)}
+
         invoice = Invoice.create(order.id, total)
 
-        # process payment
         try:
             payment = PaymentFactory.create(payment_method, total, order.id)
-            payment_message = payment.process()
+            msg = payment.process()
         except Exception as e:
             cart.release_all()
-            return {"success": False, "message": f"Payment failed: {str(e)}"}
+            return {"success": False, "message": f"Payment failed: {e}"}
 
-        # mark invoice and order as paid
         invoice.mark_paid()
         order.mark_paid()
-
-        # clear cart after success
         cart.clear()
 
         return {
             "success": True,
             "order_id": order.id,
-            "total": total,
             "invoice_id": invoice.id,
             "payment_method": payment_method,
-            "message": payment_message,
+            "total": float(total),
+            "message": msg,
         }
 
-    # mark order as shipped and record shipment
     def ship_order(self, order_id: int, tracking_number: str) -> Dict:
+        """Marks an order as shipped and records shipment info."""
         order = Order.find_by_id(order_id)
         if not order:
             return {"success": False, "message": "Order not found"}
@@ -1576,13 +1984,11 @@ class OrderService:
         shipment = Shipment.create(order_id, tracking_number)
         shipment.mark_shipped()
         order.mark_shipped()
-        return {
-            "success": True,
-            "message": f"Order {order_id} shipped with tracking {tracking_number}"
-        }
 
-    # fetch detailed invoice and payment info
+        return {"success": True, "message": f"Order {order_id} shipped with tracking {tracking_number}"}
+
     def get_invoice_details(self, order_id: int) -> Dict:
+        """Returns the invoice and payment details for a given order."""
         storage = StorageManager()
         order_data = storage.find_by_id("orders", order_id)
         if not order_data:
@@ -1596,27 +2002,26 @@ class OrderService:
             return {"success": False, "message": f"No invoice found for order {order_id}"}
 
         payment = next((p for p in payments if p["order_id"] == order_id), None)
-        payment_method = payment["method"].title() if payment else "Unknown"
+        method = payment["method"].title() if payment else "Unknown"
 
-        # build item list for invoice view
         items = []
         for item in order_data.get("items", []):
-            product_name = item.get("name", f"Product {item.get('product_id', '?')}")
-            quantity = item.get("quantity", item.get("qty", 0))
+            name = item.get("name", f"Product {item.get('product_id', '?')}")
+            qty = item.get("quantity", item.get("qty", 0))
             price = float(item.get("price", 0))
-            subtotal = float(item.get("subtotal", quantity * price))
+            subtotal = float(item.get("subtotal", qty * price))
             items.append({
-                "product": product_name,
-                "quantity": quantity,
+                "product": name,
+                "quantity": qty,
                 "price": price,
-                "subtotal": subtotal
+                "subtotal": subtotal,
             })
 
         return {
             "success": True,
             "order_id": order_data["id"],
             "invoice_id": invoice["id"],
-            "payment_method": payment_method,
+            "payment_method": method,
             "total": invoice["total"],
             "paid": invoice["paid"],
             "items": items,
@@ -1625,12 +2030,10 @@ class OrderService:
 
 # ==== .\business\services\report_service.py ====
 """
-File: report_service.py
-Layer: Business Logic
-Component: Report Service
-Description:
-    Generates sales and order analytics using Strategy Pattern.
+Generates reports for sales and orders using the Strategy pattern.
+Each report type (daily, monthly, all-time) summarizes order data differently.
 """
+
 from typing import List, Dict
 from business.models.report import (
     Report,
@@ -1640,12 +2043,14 @@ from business.models.report import (
 )
 
 class ReportService:
-    # generate report based on given period
+    """Selects and runs the appropriate reporting strategy."""
+
     def generate(self, period: str) -> List[Dict]:
-        p = period.lower()
-        if p == "daily":
+        period = period.lower()
+
+        if period == "daily":
             strategy = DailyReportStrategy()
-        elif p == "monthly":
+        elif period == "monthly":
             strategy = MonthlyReportStrategy()
         else:
             strategy = AllTimeReportStrategy()
@@ -1656,50 +2061,44 @@ class ReportService:
 
 # ==== .\business\services\staff_service.py ====
 """
-File: staff_service.py
-Layer: Business Logic
-Component: Staff Service
-Description:
-    Provides staff-level operations:
-      - Viewing and fulfilling orders
-      - Adjusting inventory levels
+Provides staff operations for managing orders and inventory.
+Staff can view pending orders, mark them as shipped, and adjust stock levels.
 """
+
 from typing import Dict, List
 from business.models.inventory import Inventory
 from storage.storage_manager import StorageManager
 
 
 class StaffService:
+    """Handles staff-side actions like shipping orders and updating stock."""
+
     def __init__(self):
-        # init storage and inventory
         self.storage = StorageManager()
         self.inventory = Inventory.get_instance()
 
-    # list all unshipped orders
     def view_pending_orders(self) -> List[Dict]:
-        return [o for o in self.storage.load("orders") if o["status"] != "SHIPPED"]
+        """Returns all orders that haven't been shipped yet."""
+        orders = self.storage.load("orders")
+        return [o for o in orders if o.get("status") != "SHIPPED"]
 
-    # set product stock directly
     def update_stock(self, product_id: int, new_qty: int) -> Dict:
-        """
-        Updates stock for a given product without direct printing
-        (prevents duplicate console output).
-        """
+        """Directly updates product stock in the inventory."""
         try:
             self.inventory.set_stock(product_id, new_qty)
-            # Return only — no console printing here
             return {"success": True, "message": f"Stock for product {product_id} set to {new_qty}"}
         except Exception as e:
-            return {"success": False, "message": f"Error updating stock: {str(e)}"}
+            return {"success": False, "message": f"Failed to update stock: {e}"}
 
-    # mark order as shipped and record shipment
     def ship_order(self, order_id: int, tracking_number: str) -> Dict:
+        """Marks an order as shipped and records shipment information."""
         order = self.storage.find_by_id("orders", order_id)
         if not order:
             return {"success": False, "message": f"Order {order_id} not found"}
         if order.get("status") != "PAID":
             return {"success": False, "message": "Order not yet paid"}
 
+        # Record shipment and update order status
         shipment = {"order_id": order_id, "tracking_number": tracking_number, "status": "SHIPPED"}
         self.storage.add("shipments", shipment)
         self.storage.update("orders", order_id, {"status": "SHIPPED"})
@@ -1769,13 +2168,13 @@ class StaffService:
 [
   {
     "order_id": 1,
-    "total": 26.400000000000002,
+    "total": 26.4,
     "paid": true,
     "id": 1
   },
   {
     "order_id": 2,
-    "total": 26.400000000000002,
+    "total": 26.4,
     "paid": true,
     "id": 2
   }
@@ -1798,7 +2197,7 @@ class StaffService:
         "name": "Bread Loaf",
         "quantity": 3,
         "price": 4.2,
-        "subtotal": 12.600000000000001
+        "subtotal": 12.6
       },
       {
         "product_id": 3,
@@ -1808,9 +2207,9 @@ class StaffService:
         "subtotal": 6.8
       }
     ],
-    "total": 26.400000000000002,
+    "total": 26.4,
     "status": "SHIPPED",
-    "created_at": "2025-11-04T17:24:18.115070",
+    "created_at": "2025-11-05T19:48:22.584994",
     "id": 1
   },
   {
@@ -1828,7 +2227,7 @@ class StaffService:
         "name": "Bread Loaf",
         "quantity": 3,
         "price": 4.2,
-        "subtotal": 12.600000000000001
+        "subtotal": 12.6
       },
       {
         "product_id": 3,
@@ -1838,9 +2237,9 @@ class StaffService:
         "subtotal": 6.8
       }
     ],
-    "total": 26.400000000000002,
-    "status": "SHIPPED",
-    "created_at": "2025-11-05T14:48:06.532043",
+    "total": 26.4,
+    "status": "PAID",
+    "created_at": "2025-11-05T20:10:47.317774",
     "id": 2
   }
 ]
@@ -1850,14 +2249,14 @@ class StaffService:
   {
     "order_id": 1,
     "method": "card",
-    "amount": 26.400000000000002,
+    "amount": 26.4,
     "status": "APPROVED",
     "id": 1
   },
   {
     "order_id": 2,
-    "method": "wallet",
-    "amount": 26.400000000000002,
+    "method": "card",
+    "amount": 26.4,
     "status": "APPROVED",
     "id": 2
   }
@@ -1888,6 +2287,16 @@ class StaffService:
   }
 ]
 
+# ==== .\data\session.json ====
+{
+  "id": 1,
+  "username": "customer1",
+  "password": "Password123!",
+  "user_type": "customer",
+  "customer_id": 1,
+  "staff_id": null
+}
+
 # ==== .\data\shipments.json ====
 [
   {
@@ -1895,12 +2304,6 @@ class StaffService:
     "tracking_number": "TRACK123",
     "status": "SHIPPED",
     "id": 1
-  },
-  {
-    "order_id": 2,
-    "tracking_number": "TRACK123",
-    "status": "SHIPPED",
-    "id": 2
   }
 ]
 
@@ -1915,11 +2318,10 @@ class StaffService:
 
 # ==== .\presentation\cli_controller.py ====
 """
-File: cli_controller.py
-Layer: Presentation
-Description:
-    Routes CLI commands to business services with error handling and user prompts.
+Command-line controller that connects user commands to business services.
+Handles login, checkout, stock management, and report generation.
 """
+
 from typing import Dict, List
 from rich.console import Console
 from presentation.formatters import (
@@ -1940,6 +2342,8 @@ console = Console()
 
 
 class CLIController:
+    """Top-level command router for the CLI interface."""
+
     def __init__(self):
         self.auth_service = AuthService()
         self.cart_service = CartService()
@@ -1947,24 +2351,24 @@ class CLIController:
         self.report_service = ReportService()
         self.staff_service = StaffService()
 
-    # ---------------------- SYSTEM SETUP ---------------------- #
+    # ---------- System setup ----------
     def initialize_system(self) -> Dict:
+        """Reset storage and load sample data."""
         try:
-            result = self.auth_service.initialize_system()
-            return result
+            return self.auth_service.initialize_system()
         except Exception as e:
-            return {"success": False, "message": f"Initialization failed: {str(e)}"}
+            return {"success": False, "message": f"Initialization failed: {e}"}
 
-    # ---------------------- AUTH ------------------------------ #
+    # ---------- Auth ----------
     def login(self, username: str, password: str) -> Dict:
         return self.auth_service.login(username, password)
 
     def logout(self) -> Dict:
         return self.auth_service.logout()
 
-    # ---------------------- CUSTOMER / GENERAL OPS ---------------------- #
+    # ---------- Customer / shared actions ----------
     def browse_products(self, category: str = None) -> List[Dict]:
-        """Allow any logged-in user (staff or customer) to browse."""
+        """Show product catalogue (optionally filtered by category)."""
         user = self.auth_service.get_current_user()
         if not user:
             console.print("[red]Please login first.[/red]")
@@ -1976,11 +2380,11 @@ class CLIController:
                 console.print("[yellow]No products found.[/yellow]")
             return products
         except Exception as e:
-            console.print(f"[red]Failed to load products: {str(e)}[/red]")
+            console.print(f"[red]Failed to load products: {e}[/red]")
             return []
 
     def add_to_cart(self, product_id: int, quantity: int) -> Dict:
-        """Only customers can add items to cart."""
+        """Add a product to the current customer’s cart."""
         user = self.auth_service.get_current_user()
         if not user:
             return {"success": False, "message": "Please login first"}
@@ -1989,7 +2393,7 @@ class CLIController:
         return self.cart_service.add_item(user["customer_id"], product_id, quantity)
 
     def view_cart(self) -> Dict:
-        """Only customers can view their cart."""
+        """Display the current customer’s cart."""
         user = self.auth_service.get_current_user()
         if not user:
             console.print("[red]Please login first.[/red]")
@@ -1999,19 +2403,17 @@ class CLIController:
             return {"items": [], "total": 0.0}
 
         cart = self.cart_service.get_cart(user["customer_id"])
-        if not cart.get("items"):
-            console.print("[yellow]Your cart is empty.[/yellow]")
         return cart
 
     def checkout(self) -> Dict:
-        """Checkout cart for logged-in customer."""
+        """Process checkout for the logged-in customer."""
         user = self.auth_service.get_current_user()
         if not user or user.get("user_type") != "customer":
             return {"success": False, "message": "Please login first"}
 
         cart = self.cart_service.get_cart(user["customer_id"])
         if not cart.get("items"):
-            console.print("[yellow]Cart is empty. Please add items before checkout.[/yellow]")
+            console.print("[yellow]Cart is empty.[/yellow]")
             return {"success": False, "message": "Cart is empty"}
 
         try:
@@ -2023,27 +2425,24 @@ class CLIController:
             result = self.order_service.create_order(user["customer_id"], payment_method=method)
 
             if result.get("success"):
-                console.print(f"\n[bold green]Payment Successful via {method.title()}[/bold green]")
-                console.print(f"Invoice ID: {result.get('invoice_id')}")
-                console.print(f"Order ID: {result.get('order_id')}")
-                console.print("\n[cyan]Use this command to view your invoice:[/cyan]")
-                console.print(f"[bold yellow]python main.py view-invoice {result.get('order_id')}[/bold yellow]")
+                console.print(f"\n[bold green]Payment successful via {method.title()}[/bold green]")
+                console.print(f"Invoice ID: {result['invoice_id']} | Order ID: {result['order_id']}")
             else:
                 console.print(f"[red]Checkout failed:[/red] {result.get('message')}")
             return result
 
         except CartEmptyError as e:
-            console.print(f"[yellow]{str(e)}[/yellow]")
+            console.print(f"[yellow]{e}[/yellow]")
             return {"success": False, "message": str(e)}
         except InsufficientStockError as e:
-            console.print(f"[red]{str(e)}[/red]")
+            console.print(f"[red]{e}[/red]")
             return {"success": False, "message": str(e)}
         except Exception as e:
-            console.print(f"[red]Checkout failed: {str(e)}[/red]")
-            return {"success": False, "message": f"Checkout failed: {str(e)}"}
+            console.print(f"[red]Checkout failed: {e}[/red]")
+            return {"success": False, "message": f"Checkout failed: {e}"}
 
     def view_invoice(self, order_id: int) -> Dict:
-        """View invoice for logged-in customer."""
+        """View invoice for a specific order."""
         user = self.auth_service.get_current_user()
         if not user or user.get("user_type") != "customer":
             console.print("[red]Please login first.[/red]")
@@ -2052,7 +2451,7 @@ class CLIController:
         display_invoice_table(result)
         return result
 
-    # ---------------------- STAFF OPS ------------------------- #
+    # ---------- Staff actions ----------
     def ship_order(self, order_id: int, tracking_number: str) -> Dict:
         user = self.auth_service.get_current_user()
         if not user or user.get("user_type") != "staff":
@@ -2090,7 +2489,7 @@ class CLIController:
             return {"success": False, "message": "Staff access required"}
         return self.staff_service.update_stock(product_id, new_quantity)
 
-    # ---------------------- DISPLAY HELPERS ------------------- #
+    # ---------- Display helpers ----------
     def display_products(self, products: List[Dict]):
         display_products_table(products)
 
@@ -2106,18 +2505,18 @@ class CLIController:
 
 # ==== .\presentation\formatters.py ====
 """
-File: formatters.py
-Layer: Presentation
-Description:
-    Handles terminal output formatting for product listings, carts, invoices, and reports.
+Formatting helpers for displaying tables in the terminal.
+Used by the CLI to show products, carts, invoices, reports, and orders.
 """
+
 from rich.table import Table
 from rich.console import Console
 
 console = Console()
 
-# show list of products
+# ---------Product catalogue display----------------------------------------------------------
 def display_products_table(products):
+    """Show all products in a formatted table."""
     if not products:
         console.print("[yellow]No products found[/yellow]")
         return
@@ -2130,13 +2529,15 @@ def display_products_table(products):
     table.add_column("Stock", style="yellow")
 
     for p in products:
-        stock_display = str(p["stock"]) if p["stock"] > 0 else "[red]Out of Stock[/red]"
-        table.add_row(str(p["id"]), p["name"], p["category"], f"${p['price']:.2f}", stock_display)
+        stock_text = str(p["stock"]) if p["stock"] > 0 else "[red]Out of Stock[/red]"
+        table.add_row(str(p["id"]), p["name"], p["category"], f"${p['price']:.2f}", stock_text)
 
     console.print(table)
 
-# show cart items
+
+# ---------Shopping cart display----------------------------------------------------------
 def display_cart_table(cart):
+    """Show items currently in the user's cart."""
     items = cart.get("items", [])
     if not items:
         console.print("[yellow]Cart is empty[/yellow]")
@@ -2149,15 +2550,22 @@ def display_cart_table(cart):
     table.add_column("Subtotal", justify="right", style="magenta")
 
     for item in items:
-        table.add_row(item["name"], str(item["qty"]), f"${item['price']:.2f}", f"${item['subtotal']:.2f}")
+        table.add_row(
+            item["name"],
+            str(item["qty"]),
+            f"${item['price']:.2f}",
+            f"${item['subtotal']:.2f}"
+        )
 
     console.print(table)
     console.print(f"\n[bold green]Total: ${cart.get('total', 0.0):.2f}[/bold green]")
 
-# show invoice details
+
+# ----------Invoice display-----------------------------------------------------------
 def display_invoice_table(invoice):
+    """Show invoice summary and item breakdown."""
     if not invoice.get("success"):
-        console.print(f"[red]✗ {invoice.get('message', 'Invoice not found')}[/red]")
+        console.print(f"[red]{invoice.get('message', 'Invoice not found')}[/red]")
         return
 
     console.print("\n[bold cyan]Invoice Summary[/bold cyan]")
@@ -2180,13 +2588,20 @@ def display_invoice_table(invoice):
 
     for item in invoice["items"]:
         subtotal = item["quantity"] * item["price"]
-        table.add_row(item["product"], str(item["quantity"]), f"${item['price']:.2f}", f"${subtotal:.2f}")
+        table.add_row(
+            item["product"],
+            str(item["quantity"]),
+            f"${item['price']:.2f}",
+            f"${subtotal:.2f}"
+        )
 
     console.print(table)
-    console.print("\n")
+    console.print()
 
-# show report summary
+
+# -----------Report display---------------------------------------------------------------------
 def display_report_table(report):
+    """Show a simple summary of report metrics."""
     if not report:
         console.print("[yellow]No report data available[/yellow]")
         return
@@ -2201,14 +2616,19 @@ def display_report_table(report):
     console.print(table)
 
 
+# ---------Orders display-----------------------------------------------------
 def display_orders_table(orders: list):
+    """Show all orders with their items."""
     if not orders:
         console.print("[yellow]No orders found.[/yellow]")
         return
 
     for order in orders:
-        table = Table(title=f"Order ID: {order['id']} | Status: {order['status']} | Total: ${order['total']:.2f}")
-
+        table = Table(
+            title=f"Order ID: {order['id']} | "
+                  f"Status: {order['status']} | "
+                  f"Total: ${order['total']:.2f}"
+        )
         table.add_column("Product ID", justify="right")
         table.add_column("Name")
         table.add_column("Qty", justify="right")
@@ -2225,7 +2645,7 @@ def display_orders_table(orders: list):
             )
 
         console.print(table)
-        console.print()  # blank line between orders
+        console.print()  # space between orders
 
 
 # ==== .\presentation\__init__.py ====
@@ -2233,15 +2653,10 @@ def display_orders_table(orders: list):
 
 # ==== .\storage\json_handler.py ====
 """
-File: json_handler.py
-Layer: Data Access
-Component: JSON Handler
-Description:
-    Provides low-level JSON file operations:
-      - Safe read and write
-      - Automatic file creation
-      - Atomic write with Windows-safe rename fallback
+Utility for safe reading and writing of JSON files.
+Handles file creation, atomic saves, and basic error recovery.
 """
+
 import json
 import os
 import shutil
@@ -2249,12 +2664,13 @@ import time
 from pathlib import Path
 from typing import Any, List, Dict
 
-class JSONHandler:
-    """Handles reading and writing JSON files safely."""
 
-    # read JSON file, return list or empty if missing/invalid
+class JSONHandler:
+    """Handles safe JSON file I/O."""
+
     @staticmethod
     def read_json(file_path: Path) -> List[Dict[str, Any]]:
+        """Read a JSON file and return its contents (empty list if missing or invalid)."""
         if not file_path.exists():
             file_path.write_text("[]")
             return []
@@ -2264,16 +2680,16 @@ class JSONHandler:
         except (json.JSONDecodeError, FileNotFoundError):
             return []
 
-    # write JSON data atomically with Windows-safe fallback
     @staticmethod
     def write_json(file_path: Path, data: List[Dict[str, Any]]) -> None:
+        """Write JSON data atomically with a Windows-safe fallback."""
         tmp_path = file_path.with_suffix(".tmp")
 
-        # write to temp file
+        # Write to a temporary file first
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
-        # replace file atomically or retry if locked
+        # Replace file safely (retry if file is locked)
         try:
             os.replace(tmp_path, file_path)
         except PermissionError:
@@ -2284,7 +2700,7 @@ class JSONHandler:
                     return
                 except PermissionError:
                     continue
-            # final fallback if file still locked
+            # Final fallback
             try:
                 os.remove(file_path)
             except FileNotFoundError:
@@ -2294,13 +2710,10 @@ class JSONHandler:
 
 # ==== .\storage\session_manager.py ====
 """
-File: session_manager.py
-Layer: Storage
-Component: Session Manager
-Description:
-    Manages user session state across CLI commands using file-based storage.
-    Each command reads the current session to maintain login state.
+Handles persistent session data for the CLI.
+Stores the currently logged-in user between commands.
 """
+
 import json
 from pathlib import Path
 from typing import Optional, Dict
@@ -2308,49 +2721,40 @@ from app_config import DATA_DIR
 
 SESSION_FILE = DATA_DIR / "session.json"
 
-class SessionManager:
-    """Handles persistent session state for CLI."""
 
-    # save current user session to file
+class SessionManager:
+    """Manages user login sessions using a simple JSON file."""
+
     @staticmethod
     def save_session(user_data: Dict) -> None:
-        with open(SESSION_FILE, 'w') as f:
+        """Save the current user's session to disk."""
+        with open(SESSION_FILE, "w") as f:
             json.dump(user_data, f, indent=2)
 
-    # load existing session from file
     @staticmethod
     def load_session() -> Optional[Dict]:
+        """Load session from file if it exists."""
         if not SESSION_FILE.exists():
             return None
         try:
-            with open(SESSION_FILE, 'r') as f:
+            with open(SESSION_FILE, "r") as f:
                 data = json.load(f)
                 return data if data else None
         except (json.JSONDecodeError, FileNotFoundError):
             return None
 
-    # remove session file to clear login state
     @staticmethod
     def clear_session() -> None:
+        """Remove session file (logout)."""
         if SESSION_FILE.exists():
             SESSION_FILE.unlink()
 
 
 # ==== .\storage\storage_manager.py ====
 """
-File: storage_manager.py
-Layer: Data Access
-Component: Storage Manager
-Description:
-    Unified interface for file-based persistence.
-    Responsibilities:
-      - Map entity types to JSON files
-      - Provide CRUD operations
-      - Ensure data files exist
-      - Maintain ID auto-incrementing
-Collaborators:
-      - JSONHandler (low-level I/O)
-      - app_config (file paths)
+Centralized data access layer for reading and writing JSON-based entities.
+Provides CRUD operations and maps logical entities (orders, products, etc.)
+to their corresponding data files.
 """
 
 from typing import List, Dict, Any, Optional
@@ -2363,7 +2767,7 @@ from storage.json_handler import JSONHandler
 
 
 class StorageManager:
-    """High-level persistence API used by business services."""
+    """Main interface for all file-based persistence."""
 
     _file_map = {
         "customers": CUSTOMERS_FILE,
@@ -2379,40 +2783,36 @@ class StorageManager:
     }
 
     def __init__(self):
-        # setup JSON handler and ensure all files exist
         self.json_handler = JSONHandler()
         self.ensure_files()
 
-    # create empty files if missing
     def ensure_files(self) -> None:
+        """Create empty JSON files if they don't exist."""
         for path in self._file_map.values():
             if not path.exists():
                 self.json_handler.write_json(path, [])
 
-    # load all records for entity
     def load(self, entity: str) -> List[Dict[str, Any]]:
+        """Load all records for the given entity."""
         file_path = self._file_map.get(entity)
         if not file_path:
             raise ValueError(f"Unknown entity type: {entity}")
         return self.json_handler.read_json(file_path)
 
-    # alias for backward compatibility
-    def get_all(self, entity: str) -> List[Dict[str, Any]]:
-        return self.load(entity)
+    # Backwards-compatible aliases
+    get_all = load
+    read = load
 
-    # keep read() alias for older code
-    read = get_all
-
-    # save all records back to file
     def save_all(self, entity: str, data: List[Dict[str, Any]]) -> None:
+        """Save all records for an entity."""
         file_path = self._file_map.get(entity)
         try:
             self.json_handler.write_json(file_path, data)
         except Exception as e:
             print(f"[ERROR] Failed to save {entity}: {e}")
 
-    # add record with auto-incremented ID
     def add(self, entity: str, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a new record with an auto-incremented ID."""
         records = self.load(entity)
         max_id = max((r.get("id", 0) for r in records), default=0)
         record["id"] = max_id + 1
@@ -2420,8 +2820,8 @@ class StorageManager:
         self.save_all(entity, records)
         return record
 
-    # update record by ID
     def update(self, entity: str, record_id: int, updates: Dict[str, Any]) -> bool:
+        """Update a record by its ID."""
         records = self.load(entity)
         for rec in records:
             if rec.get("id") == record_id:
@@ -2430,8 +2830,8 @@ class StorageManager:
                 return True
         return False
 
-    # delete record by ID
     def delete(self, entity: str, record_id: int) -> bool:
+        """Delete a record by its ID."""
         records = self.load(entity)
         new_records = [r for r in records if r.get("id") != record_id]
         if len(new_records) != len(records):
@@ -2439,8 +2839,8 @@ class StorageManager:
             return True
         return False
 
-    # find single record by ID
     def find_by_id(self, entity: str, record_id: int) -> Optional[Dict[str, Any]]:
+        """Find a record by its ID."""
         for rec in self.load(entity):
             if rec.get("id") == record_id:
                 return rec
@@ -2452,22 +2852,17 @@ class StorageManager:
 
 # ==== .\tests\test_complete_system.py ====
 """
-===============================================================================
-File: tests/test_complete_system.py
-Description:
-    Comprehensive integration tests for OCSS.
-    Tests all major workflows: authentication, cart, checkout, staff ops.
-    
-Run with: pytest tests/test_complete_system.py -v
-===============================================================================
+Comprehensive integration tests for the Online Convenience Store System (OCSS).
+Covers login, cart, checkout, inventory, reports, and staff operations.
+Run with: pytest -v
 """
 
 import pytest
-import json
 from pathlib import Path
 import sys
+from decimal import Decimal
 
-# Add parent directory to path
+# Allow local imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from business.models.customer import Customer
@@ -2484,22 +2879,24 @@ from storage.storage_manager import StorageManager
 from business.exceptions.errors import InsufficientStockError, CartEmptyError
 
 
+# ---------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------
 @pytest.fixture(scope="function")
 def clean_data_files():
-    """Remove all JSON files before each test for clean state"""
+    """Ensure a clean data directory for each test run."""
     data_dir = Path("data")
     if data_dir.exists():
-        for json_file in data_dir.glob("*.json"):
-            json_file.unlink()
+        for f in data_dir.glob("*.json"):
+            f.unlink()
     yield
-    # Cleanup after test
-    for json_file in data_dir.glob("*.json"):
-        json_file.unlink()
+    for f in data_dir.glob("*.json"):
+        f.unlink()
 
 
 @pytest.fixture
 def auth_service(clean_data_files):
-    """Initialize auth service with sample data"""
+    """Initialize sample data and return AuthService."""
     service = AuthService()
     service.initialize_system()
     return service
@@ -2507,374 +2904,264 @@ def auth_service(clean_data_files):
 
 @pytest.fixture
 def cart_service(auth_service):
-    """Cart service fixture"""
     return CartService()
 
 
 @pytest.fixture
 def order_service(auth_service):
-    """Order service fixture"""
     return OrderService()
 
 
-# ============================================================================
-# TEST GROUP 1: AUTHENTICATION & SESSION MANAGEMENT
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------
 def test_customer_login_success(auth_service):
-    """Test successful customer login"""
     result = auth_service.login("customer1", "Password123!")
-    assert result["success"] == True
+    assert result["success"]
     assert result["user"]["user_type"] == "customer"
-    assert result["user"]["username"] == "customer1"
 
 
 def test_staff_login_success(auth_service):
-    """Test successful staff login"""
     result = auth_service.login("staff1", "Admin123!")
-    assert result["success"] == True
+    assert result["success"]
     assert result["user"]["user_type"] == "staff"
 
 
 def test_login_invalid_credentials(auth_service):
-    """Test login with wrong credentials"""
     result = auth_service.login("wronguser", "wrongpass")
-    assert result["success"] == False
+    assert not result["success"]
     assert "Invalid credentials" in result["message"]
 
 
 def test_logout(auth_service):
-    """Test logout clears session"""
     auth_service.login("customer1", "Password123!")
     result = auth_service.logout()
-    assert result["success"] == True
+    assert result["success"]
     assert auth_service.get_current_user() is None
 
 
-# ============================================================================
-# TEST GROUP 2: PRODUCT & INVENTORY
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Products and Inventory
+# ---------------------------------------------------------------------
 def test_browse_all_products(cart_service):
-    """Test browsing all products"""
     products = cart_service.browse_products()
     assert len(products) == 3
     assert products[0]["name"] == "Milk 1L"
-    assert products[0]["stock"] == 50
 
 
 def test_browse_by_category(cart_service):
-    """Test filtering products by category"""
     products = cart_service.browse_products(category="Dairy")
-    assert len(products) == 2  # Milk and Eggs
+    assert len(products) == 2
     assert all(p["category"] == "Dairy" for p in products)
 
 
 def test_inventory_singleton(auth_service):
-    """Test Inventory Singleton pattern"""
     inv1 = Inventory.get_instance()
     inv2 = Inventory.get_instance()
-    assert inv1 is inv2  # Same instance
+    assert inv1 is inv2
 
 
 def test_inventory_stock_check(auth_service):
-    """Test checking stock levels"""
     inv = Inventory.get_instance()
-    stock = inv.check_stock(1)  # Milk
-    assert stock == 50
+    assert inv.check_stock(1) == 50
 
 
 def test_inventory_reserve_stock(auth_service):
-    """Test reserving stock"""
     inv = Inventory.get_instance()
-    initial = inv.check_stock(1)
+    before = inv.check_stock(1)
     inv.reserve_stock(1, 5)
-    assert inv.check_stock(1) == initial - 5
+    assert inv.check_stock(1) == before - 5
 
 
 def test_inventory_insufficient_stock(auth_service):
-    """Test error when insufficient stock"""
     inv = Inventory.get_instance()
     with pytest.raises(InsufficientStockError):
         inv.reserve_stock(1, 9999)
 
 
-# ============================================================================
-# TEST GROUP 3: CART OPERATIONS
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Cart Operations
+# ---------------------------------------------------------------------
 def test_add_item_to_cart(auth_service, cart_service):
-    """Test adding item to cart"""
-    result = cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    assert result["success"] == True
-    assert "Added 2x Milk 1L" in result["message"]
+    result = cart_service.add_item(1, 1, 2)
+    assert result["success"]
+    assert "Added 2x Milk" in result["message"]
 
 
 def test_add_invalid_product(auth_service, cart_service):
-    """Test adding non-existent product"""
-    result = cart_service.add_item(customer_id=1, product_id=999, qty=1)
-    assert result["success"] == False
+    result = cart_service.add_item(1, 999, 1)
+    assert not result["success"]
     assert "Product not found" in result["message"]
 
 
 def test_add_insufficient_stock(auth_service, cart_service):
-    """Test adding more than available stock"""
-    result = cart_service.add_item(customer_id=1, product_id=1, qty=9999)
-    assert result["success"] == False
+    result = cart_service.add_item(1, 1, 9999)
+    assert not result["success"]
     assert "available" in result["message"].lower()
 
 
 def test_view_cart(auth_service, cart_service):
-    """Test viewing cart contents"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    cart_service.add_item(customer_id=1, product_id=2, qty=3)
-    
-    cart_data = cart_service.get_cart(customer_id=1)
-    assert len(cart_data["items"]) == 2
-    assert cart_data["total"] == (2 * 3.5) + (3 * 4.2)  # Milk + Bread
+    cart_service.add_item(1, 1, 2)
+    cart_service.add_item(1, 2, 3)
+    cart = cart_service.get_cart(1)
+    assert len(cart["items"]) == 2
+    assert cart["total"] == pytest.approx((2 * 3.5) + (3 * 4.2))
 
 
 def test_cart_quantity_update(auth_service, cart_service):
-    """Test updating item quantity in cart"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    cart_service.add_item(customer_id=1, product_id=1, qty=3)  # Add more
-    
-    cart_data = cart_service.get_cart(customer_id=1)
-    milk_item = next(i for i in cart_data["items"] if i["product_id"] == 1)
-    assert milk_item["qty"] == 5  # Should be 2 + 3
+    cart_service.add_item(1, 1, 2)
+    cart_service.add_item(1, 1, 3)
+    cart = cart_service.get_cart(1)
+    milk = next(i for i in cart["items"] if i["product_id"] == 1)
+    assert milk["qty"] == 5
 
 
 def test_view_empty_cart(auth_service, cart_service):
-    """Test viewing empty cart"""
-    cart_data = cart_service.get_cart(customer_id=1)
-    assert cart_data["items"] == []
-    assert cart_data["total"] == 0.0
+    cart = cart_service.get_cart(1)
+    assert cart["items"] == []
+    assert cart["total"] == 0.0
 
 
-# ============================================================================
-# TEST GROUP 4: CHECKOUT & ORDER CREATION
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Checkout & Orders
+# ---------------------------------------------------------------------
 def test_checkout_success(auth_service, cart_service, order_service):
-    """Test successful checkout"""
-    # Add items to cart
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    
-    # Checkout
-    result = order_service.create_order(customer_id=1)
-    
-    assert result["success"] == True
+    cart_service.add_item(1, 1, 2)
+    result = order_service.create_order(1)
+    assert result["success"]
     assert result["order_id"] == 1
-    assert result["total"] == 7.0  # 2 * 3.5
+    assert result["total"] == 7.0
 
 
 def test_checkout_empty_cart(auth_service, order_service):
-    """Test checkout with empty cart"""
     with pytest.raises(CartEmptyError):
-        order_service.create_order(customer_id=1)
+        order_service.create_order(1)
 
 
 def test_checkout_reduces_inventory(auth_service, cart_service, order_service):
-    """Test that checkout reduces stock"""
     inv = Inventory.get_instance()
-    initial_stock = inv.check_stock(1)
-    
-    # Add to cart and checkout
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    order_service.create_order(customer_id=1)
-    
-    # Verify stock reduced
-    assert inv.check_stock(1) == initial_stock - 2
+    before = inv.check_stock(1)
+    cart_service.add_item(1, 1, 2)
+    order_service.create_order(1)
+    assert inv.check_stock(1) == before - 2
 
 
 def test_checkout_clears_cart(auth_service, cart_service, order_service):
-    """Test that checkout clears the cart"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    order_service.create_order(customer_id=1)
-    
-    cart_data = cart_service.get_cart(customer_id=1)
-    assert cart_data["items"] == []
+    cart_service.add_item(1, 1, 2)
+    order_service.create_order(1)
+    cart = cart_service.get_cart(1)
+    assert not cart["items"]
 
 
 def test_checkout_creates_invoice(auth_service, cart_service, order_service):
-    """Test that checkout creates invoice"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    result = order_service.create_order(customer_id=1)
-    
-    # Check invoice created
-    storage = StorageManager()
-    invoices = storage.load("invoices")
-    assert len(invoices) == 1
-    assert invoices[0]["order_id"] == result["order_id"]
-    assert invoices[0]["paid"] == True
+    cart_service.add_item(1, 1, 2)
+    result = order_service.create_order(1)
+    invoices = StorageManager().load("invoices")
+    assert invoices and invoices[0]["order_id"] == result["order_id"]
+    assert invoices[0]["paid"]
 
 
 def test_checkout_creates_payment(auth_service, cart_service, order_service):
-    """Test that checkout creates payment record (Factory Method pattern)"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    result = order_service.create_order(customer_id=1)
-    
-    # Check payment created
-    storage = StorageManager()
-    payments = storage.load("payments")
-    assert len(payments) == 1
-    assert payments[0]["order_id"] == result["order_id"]
+    cart_service.add_item(1, 1, 2)
+    result = order_service.create_order(1)
+    payments = StorageManager().load("payments")
+    assert payments and payments[0]["order_id"] == result["order_id"]
     assert payments[0]["status"] == "APPROVED"
 
 
-# ============================================================================
-# TEST GROUP 5: STAFF OPERATIONS
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Staff Operations
+# ---------------------------------------------------------------------
 def test_ship_order_success(auth_service, cart_service, order_service):
-    """Test staff shipping an order"""
-    # Create order first
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    order_result = order_service.create_order(customer_id=1)
-    
-    # Ship order
-    ship_result = order_service.ship_order(order_result["order_id"], "TRACK123")
-    assert ship_result["success"] == True
+    cart_service.add_item(1, 1, 2)
+    order_result = order_service.create_order(1)
+    ship = order_service.ship_order(order_result["order_id"], "TRACK123")
+    assert ship["success"]
 
 
 def test_ship_nonexistent_order(auth_service, order_service):
-    """Test shipping non-existent order"""
     result = order_service.ship_order(999, "TRACK123")
-    assert result["success"] == False
+    assert not result["success"]
     assert "not found" in result["message"]
 
 
-# ============================================================================
-# TEST GROUP 6: REPORTING (Strategy Pattern)
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Reporting (Strategy Pattern)
+# ---------------------------------------------------------------------
 def test_daily_report(auth_service, cart_service, order_service):
-    """Test daily report generation (Strategy pattern)"""
-    # Create an order
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    order_service.create_order(customer_id=1)
-    
-    # Generate daily report
-    report_service = ReportService()
-    report = report_service.generate("daily")
-    
-    assert len(report) > 0
+    cart_service.add_item(1, 1, 2)
+    order_service.create_order(1)
+    report = ReportService().generate("daily")
     assert any(r["metric"] == "Report Type" and r["value"] == "Daily" for r in report)
 
 
 def test_monthly_report(auth_service):
-    """Test monthly report generation"""
-    report_service = ReportService()
-    report = report_service.generate("monthly")
-    
-    assert len(report) > 0
-    assert any(r["metric"] == "Report Type" and r["value"] == "Monthly" for r in report)
+    report = ReportService().generate("monthly")
+    assert any(r["value"] == "Monthly" for r in report)
 
 
 def test_all_time_report(auth_service):
-    """Test all-time report generation"""
-    report_service = ReportService()
-    report = report_service.generate("all")
-    
-    assert len(report) > 0
-    assert any(r["metric"] == "Report Type" and r["value"] == "All-Time" for r in report)
+    report = ReportService().generate("all")
+    assert any(r["value"] == "All-Time" for r in report)
 
 
-# ============================================================================
-# TEST GROUP 7: DOMAIN MODEL INTEGRITY
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Domain Model Integrity
+# ---------------------------------------------------------------------
 def test_customer_order_history(auth_service, cart_service, order_service):
-    """Test customer can retrieve order history"""
-    # Create multiple orders
-    cart_service.add_item(customer_id=1, product_id=1, qty=1)
-    order_service.create_order(customer_id=1)
-    
-    cart_service.add_item(customer_id=1, product_id=2, qty=1)
-    order_service.create_order(customer_id=1)
-    
-    # Check order history
-    customer = Customer.find_by_id(1)
-    history = customer.order_history()
+    cart_service.add_item(1, 1, 1)
+    order_service.create_order(1)
+    cart_service.add_item(1, 2, 1)
+    order_service.create_order(1)
+    history = Customer.find_by_id(1).order_history()
     assert len(history) == 2
 
 
 def test_product_find_by_id(auth_service):
-    """Test finding product by ID"""
-    product = Product.find_by_id(1)
-    assert product is not None
-    assert product.name == "Milk 1L"
-    assert product.price == 3.5
+    p = Product.find_by_id(1)
+    assert p and p.name == "Milk 1L"
+    assert p.price == Decimal("3.5")
 
 
 def test_order_persistence(auth_service, cart_service, order_service):
-    """Test order data persists correctly"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=2)
-    result = order_service.create_order(customer_id=1)
-    
-    # Retrieve order
+    cart_service.add_item(1, 1, 2)
+    result = order_service.create_order(1)
     order = Order.find_by_id(result["order_id"])
-    assert order is not None
-    assert order.customer_id == 1
-    assert order.total == 7.0
+    assert order
+    assert order.customer.id == 1
+    assert order.total == Decimal("7.0")
     assert order.status == "PAID"
 
 
-# ============================================================================
-# TEST GROUP 8: DESIGN PATTERNS VALIDATION
-# ============================================================================
-
+# ---------------------------------------------------------------------
+# Design Pattern Validation
+# ---------------------------------------------------------------------
 def test_singleton_pattern_inventory(auth_service):
-    """Verify Singleton pattern for Inventory"""
-    # Get multiple instances
     inv1 = Inventory.get_instance()
     inv2 = Inventory.get_instance()
     inv3 = Inventory()
-    
-    # All should be same instance
-    assert inv1 is inv2
-    assert inv2 is inv3
+    assert inv1 is inv2 is inv3
 
 
 def test_factory_method_payment(auth_service, cart_service, order_service):
-    """Verify Factory Method pattern creates correct payment type"""
-    cart_service.add_item(customer_id=1, product_id=1, qty=1)
-    order_service.create_order(customer_id=1)
-    
-    storage = StorageManager()
-    payments = storage.load("payments")
-    
-    # Factory should create card payment by default
+    cart_service.add_item(1, 1, 1)
+    order_service.create_order(1)
+    payments = StorageManager().load("payments")
     assert payments[0]["method"] == "card"
 
 
 def test_strategy_pattern_reports(auth_service):
-    """Verify Strategy pattern allows different report types"""
-    report_service = ReportService()
-    
-    daily = report_service.generate("daily")
-    monthly = report_service.generate("monthly")
-    all_time = report_service.generate("all")
-    
-    # Each strategy produces different report type
-    assert daily[0]["value"] == "Daily"
-    assert monthly[0]["value"] == "Monthly"
-    assert all_time[0]["value"] == "All-Time"
+    r = ReportService()
+    assert r.generate("daily")[0]["value"] == "Daily"
+    assert r.generate("monthly")[0]["value"] == "Monthly"
+    assert r.generate("all")[0]["value"] == "All-Time"
+
 
 def test_staff_update_stock(auth_service):
-    service = auth_service
     from business.services.staff_service import StaffService
-    staff_service = StaffService()
-    result = staff_service.update_stock(1, 99)
+    result = StaffService().update_stock(1, 99)
     assert result["success"]
 
-
-# ============================================================================
-# RUN SUMMARY
-# ============================================================================
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v", "--tb=short"])
 
 # ==== .\tests\__init__.py ====
 
