@@ -84,6 +84,7 @@ def add_to_cart(
     product_id: int = typer.Argument(..., help="Product ID"),
     quantity: int = typer.Argument(1, help="Quantity to add (default 1)"),
 ):
+
     """Add a product to your shopping cart."""
     result = controller.add_to_cart(product_id, quantity)
     color = "green" if result["success"] else "red"
